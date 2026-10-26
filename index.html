@@ -355,6 +355,38 @@ body.wiz-on #main{padding-bottom:calc(200px + var(--safeb))}
 .tplrow .btns .btn{flex:0 0 auto}
 details.card summary{display:flex;align-items:center;gap:8px}
 details.card summary svg{width:18px;height:18px;color:var(--acc)}
+/* загрузка своих файлов */
+.imfile{display:flex;gap:10px;align-items:center;background:var(--card);border-radius:12px;padding:10px 12px;margin-bottom:12px;box-shadow:var(--sh)}
+.imfile>svg{width:26px;height:26px;color:var(--acc)}
+.imcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.imcol{border:1px solid var(--line);border-radius:12px;padding:9px 10px;background:var(--card);display:flex;flex-direction:column;gap:6px;min-width:0}
+.imcol.on{border-color:color-mix(in srgb,var(--acc) 45%,var(--line));box-shadow:inset 3px 0 0 var(--acc)}
+.imh{display:flex;gap:7px;align-items:center;min-width:0}
+.imh b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.colk{flex:none;font:700 11px ui-monospace,monospace;background:var(--line2);color:var(--mut);border-radius:5px;padding:1px 5px}
+.ims{display:flex;gap:4px;flex-wrap:wrap;min-height:22px}
+.ims span{font-size:12px;background:var(--card2);border:1px solid var(--line2);border-radius:6px;padding:1px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imcol select{width:100%;border:1px solid var(--line);border-radius:9px;padding:7px 8px;min-height:40px;font-size:16px;background:var(--card);min-width:0}
+.imcol.on select{border-color:var(--acc);color:var(--acc);font-weight:600}
+.imsum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.imsum span{background:var(--card);border-radius:10px;padding:7px 11px;font-size:14px;box-shadow:var(--sh)}
+.imsum b{font-size:17px}
+.imprev{overflow-x:auto;background:var(--card);border-radius:12px;box-shadow:var(--sh);-webkit-overflow-scrolling:touch}
+.imprev table{border-collapse:collapse;font-size:13px;min-width:100%}
+.imprev th{text-align:left;font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px;padding:7px 9px;background:var(--card2);white-space:nowrap}
+.imprev td{padding:7px 9px;border-top:1px solid var(--line2);white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.fld>span.lbl{display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px;font-weight:600}
+/* статусы сотрудников */
+.sbadge{display:inline-flex;align-items:center;border-radius:6px;padding:1px 7px;font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1.5}
+.sbadge.leave{background:var(--orgbg);color:var(--org)}
+.sbadge.gone{background:var(--grybg);color:var(--gry);border:1px solid var(--line)}
+.statbox{display:flex;gap:10px;align-items:center;border-radius:12px;padding:10px 12px;margin-top:10px;background:var(--orgbg)}
+.statbox>svg{width:20px;height:20px;color:var(--org)}
+.statbox.gone{background:var(--grybg)}.statbox.gone>svg{color:var(--gry)}
+.statbox .sp{flex:1;min-width:0}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:8px 0 10px;cursor:pointer;font-size:14.5px}
+.chk input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--acc)}
+.dim{opacity:.62}
 /* таблицы ПК */
 .tr{display:grid;grid-template-columns:var(--gc);gap:0 14px;align-items:center;padding:10px 16px;border-top:1px solid var(--line2);cursor:pointer;min-height:62px}
 .tr:first-child{border-top:0}
@@ -403,6 +435,7 @@ details.card summary svg{width:18px;height:18px;color:var(--acc)}
   .sheet .sh-h{border-radius:0;padding-top:14px}
   .sheet .sh-h:before{display:none}
   #sheet2{width:min(600px,100vw)}
+  .sheet.wide{width:min(1000px,100vw)}
   #toast{bottom:28px}
   .wizbar{position:sticky;left:auto;right:auto;bottom:16px;margin-top:16px;padding:10px 12px}
   .wizbar .info{flex:1 1 auto;font-size:13.5px}

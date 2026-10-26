@@ -233,5 +233,39 @@
     const z = await JSZip.loadAsync(buf); const f = z.file('word/document.xml'); if (!f) return false;
     const t = await f.async('string'); return /Персональные данные/.test(t) && /Фамилия Имя/.test(t);
   };
+
+  /* ===== ЧТЕНИЕ своих Word-файлов: таблицы, абзацы и анкета «Заявка на приобретение билетов» ===== */
+  ZV.readDocx = async function (buf) {
+    const z = await JSZip.loadAsync(buf); const f = z.file('word/document.xml');
+    if (!f) throw new Error('Это не документ Word (.docx)');
+    const doc = parse(await f.async('string'));
+    const body = all(doc, NW, 'body')[0];
+    const cellTxt = tc => kids(tc, 'p').map(p => txt(p)).join(' ').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+    const tables = all(doc, NW, 'tbl').filter(t => !t.parentNode || t.parentNode.localName !== 'tc').map(t => kids(t, 'tr').map(tr => kids(tr, 'tc').map(cellTxt)));
+    const paras = kids(body, 'p').map(p => txt(p).replace(/ /g, ' ').trim()).filter(Boolean);
+    let form = null;
+    const t0 = kids(body, 'tbl')[0];
+    if (t0 && /Персональные данные/i.test(txt(t0)) && /Фамилия Имя/i.test(txt(t0))) {
+      const rows = kids(t0, 'tr'), cells = tr => kids(tr, 'tc'), ct = tc => norm(txt(tc));
+      const findRow = (re, from = 0) => { for (let i = from; i < rows.length; i++) if (cells(rows[i]).some(c => re.test(ct(c)))) return i; return -1; };
+      const after = (re, from = 0) => { for (let i = from; i < rows.length; i++) { const cs = cells(rows[i]); for (let j = 0; j < cs.length - 1; j++) if (re.test(ct(cs[j]))) return cellTxt(cs[j + 1]); } return ''; };
+      const pd = Math.max(0, findRow(/^персональные данные/));
+      form = { mvz: after(/^код структурного/, pd), date: after(/^дата заявки/, pd), tab: after(/^табельный номер/, pd), wphone: after(/^рабочий тел/, pd), email: after(/^e-?mail/, pd), phone: after(/^мобильный/, pd), legs: [] };
+      const F = findRow(/^фамилия имя/, pd);
+      if (F >= 0) {
+        const c = i => rows[F + i] ? cells(rows[F + i]).map(cellTxt) : [];
+        const r1 = c(1), r2 = c(2), r3 = c(3), r4 = c(4);
+        Object.assign(form, { pass: r1[1] || '', pExp: r1[2] || '', birth: r1[3] || '', cit: r1[4] || '', fio: r2[0] || '', bplace: r3[3] || '', lat: r4[0] || '' });
+      }
+      const T = findRow(/^дата отправления/);
+      if (T >= 0) for (let i = 0; i < 2; i++) { const r = rows[T + 2 + i]; if (!r) break; const v = cells(r).map(cellTxt); if (v[0]) form.legs.push({ date: v[0], flight: v[1], from: v[3], to: v[4], why: v[5] }); }
+      if (!form.fio) form = null;
+    }
+    return { tables, paras, form };
+  };
+  ZV.kind = async function (buf) {
+    try { const z = await JSZip.loadAsync(buf); if (z.file('word/document.xml')) return 'docx'; if (z.file('xl/workbook.xml')) return 'xlsx'; } catch (e) { }
+    return null;
+  };
   window.ZV = ZV;
 })();

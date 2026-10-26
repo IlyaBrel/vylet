@@ -117,7 +117,7 @@
         });
       });
       for (let i = 0; i < rows.length; i++) rows[i] = rows[i] || [];
-      out.push({ name: s.getAttribute('name'), rows });
+      out.push({ name: s.getAttribute('name'), rows, hidden: /hidden/i.test(s.getAttribute('state') || '') });
     }
     return out;
   };

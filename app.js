@@ -1,6 +1,6 @@
 'use strict';
 /* ===== Вылеты сотрудников — офлайн-приложение для телефона и ПК ===== */
-const VER = '2.1';
+const VER = '2.2';
 const KEY = 'vylety.data.v1', LKEY = 'vylety.local.v1';
 const $ = s => document.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -179,7 +179,7 @@ function legsOf(t) {
   }
   return res;
 }
-const allLegs = () => trips().flatMap(legsOf);
+const allLegs = () => trips().flatMap(legsOf).filter(l => !afterLeave(l.e, l.date));
 const legByKey = key => { const [id, k] = key.split(':'); const t = D.trip[id]; return t && alive(t) ? legsOf(t).find(l => l.k === k) : null; };
 /* состояние рейса — от него зависит цвет */
 function urg(l) {
@@ -215,12 +215,27 @@ const flyIn = l => l.fleft >= 0 && l.fleft <= 14 ? `<span class="soon ${l.st ===
 function nextLeg(eid) { return allLegs().filter(l => l.e.id === eid && l.fleft >= 0).sort((a, b) => a.date.localeCompare(b.date))[0]; }
 function issues(e, nl) {
   const a = [], t = today();
+  if (gone(e)) return a;
+  if (leaving(e) && !hasHome(e)) a.push(['нет вылета домой', e.statD && dn(e.statD) - dn(t) <= +S('lead') + 14 ? 'red' : 'org']);
   if (!e.pass) a.push(['нет паспорта', 'red']);
   else if (e.pExp) {
     if (e.pExp < t) a.push(['паспорт просрочен', 'red']);
     else if (e.pExp < addD(nl ? nl.date : t, 180)) a.push(['паспорт до ' + fd(e.pExp), 'org']);
   }
   return a;
+}
+const STATN = { end: 'Не продлевают контракт', fired: 'Уволен' };
+const gone = e => !!e && (e.stat === 'fired' ? (!e.statD || e.statD < today()) : e.stat === 'end' ? (!!e.statD && e.statD < today()) : false);
+const leaving = e => !!e && (e.stat === 'fired' || e.stat === 'end') && !gone(e);
+const afterLeave = (e, date) => !!e && (e.stat === 'fired' || e.stat === 'end') && !!e.statD && date > addD(e.statD, 7);
+const staff = () => emps().filter(e => !gone(e));
+function hasHome(e) {
+  return trips().filter(t => t.emp === e.id).flatMap(legsOf).some(l => (l.t[l.k + 'Why'] || '') === 'Увольнение' || (e.statD && l.k === 'b' && l.date >= addD(e.statD, -21) && l.date <= addD(e.statD, 7)));
+}
+function statBadge(e) {
+  if (!e || !e.stat) return '';
+  if (gone(e)) return `<span class="sbadge gone">${e.stat === 'fired' ? 'уволен' : 'контракт закончился'}${e.statD ? ' ' + fd(e.statD) : ''}</span>`;
+  return `<span class="sbadge leave">${e.stat === 'fired' ? 'увольнение' : 'не продлевают'}${e.statD ? ' ' + fd(e.statD) : ''}</span>`;
 }
 const warnHtml = iss => iss.map(([t, c]) => `<span class="warn ${c}">${ic('alert')}${t}</span>`).join('');
 const short = fio => { const p = String(fio || '').trim().split(/\s+/); return p.length < 2 ? (p[0] || '') : p[0] + ' ' + p.slice(1, 3).map(x => x[0] + '.').join(''); };
@@ -245,6 +260,7 @@ function demo() {
   });
   [['18004001', 'г. Тула', '+20 155 000 0001'], ['18040250', 'г. Екатеринбург', ''], ['18040211', '', ''], ['18004102', 'г. Ленинград', '+20 155 000 0102'], ['18040377', 'г. Ташкент', ''], ['18000015', '', '+20 155 000 0015']]
     .forEach((x, i) => { const e = D.emp[ids[i]]; ['tab', 'bplace', 'wphone'].forEach((k, j) => { if (x[j]) { e[k] = x[j]; e._t[k] = T; } }); });
+  { const e = D.emp[ids[4]]; e.stat = 'end'; e.statD = addD(t, 90); e.statNote = 'контракт не продлевают'; ['stat', 'statD', 'statNote'].forEach(k => e._t[k] = T); }
   // [сотрудник, вылет через, прилёт через, статус вылета, статус прилёта, куда вернуться]
   const TR = [[0, 40, 100, '', '', ''], [1, 48, 108, '', '', ''], [2, 65, 125, '', '', ''], [3, 70, 130, 'sent', '', ''], [4, 120, 180, '', '', ''], [0, -30, 30, 'tk', 'tk', ''], [5, 10, 24, 'sent', 'tk', 'Санкт-Петербург']];
   TR.forEach((x, i) => {
@@ -362,7 +378,7 @@ const searchBox = (k, ph) => `<div class="search">${ic('search')}<input type="se
 const matchQ = (q, ...xs) => { q = norm(q); if (!q) return true; const s = norm(xs.join(' ')); return q.split(' ').every(w => s.includes(w)); };
 const demoBanner = () => hasDemo() ? `<div class="banner blu">${ic('info')}<span class="sp">Сейчас показан <b>пример</b> с вымышленными людьми, чтобы было видно, как всё работает.</span><button class="btn sm" data-do="undemo">Удалить пример</button></div>` : '';
 function lvChips() {
-  const es = emps(), n = l => es.filter(e => lvOf(e) === l).length;
+  const es = staff(), n = l => es.filter(e => lvOf(e) === l).length;
   return `<div class="chips scroll" role="group" aria-label="Уровень">` +
     `<button class="chip ${!F.lvl ? 'on' : ''}" data-lvl="">Все <span class="n">${es.length}</span></button>` +
     Object.entries(LV).map(([k, v]) => `<button class="chip ${F.lvl === k ? 'on' : ''}" data-lvl="${k}"><span class="dot" style="background:${lvColor(k)}"></span>${v.n} <span class="n">${n(k)}</span></button>`).join('') + `</div>`;
@@ -391,12 +407,12 @@ function legRow(l, withBtn) {
   const w = warnHtml(issues(l.e, l));
   const btn = withBtn ? legBtn(l) : '';
   if (isPC()) return `<div class="tr t-${tone} ${sel ? 'sel' : ''}" data-leg="${l.key}">${av(l.e)}
-    <div class="c"><span class="nm one">${esc(l.e.fio)}</span><span class="small muted one">${lvTag(l.e)} ${esc(l.e.pos || '')}</span></div>
+    <div class="c"><span class="nm one">${esc(l.e.fio)}</span><span class="small muted one">${lvTag(l.e)} ${statBadge(l.e) || esc(l.e.pos || '')}</span></div>
     <div class="c"><span class="l2">${kind}${flyIn(l)}</span><span class="l2">${routeHtml(l)}</span></div>
     <div class="c"><div class="wrapt">${statusPill(l)}${tkChip(l)}${w}</div></div>
     <div class="c"><div class="act">${btn}</div></div></div>`;
   return `<div class="row t-${tone} ${sel ? 'sel' : ''}" data-leg="${l.key}">${av(l.e)}<div class="mn">
-    <span class="nm">${esc(l.e.fio)}</span>
+    <span class="nm">${esc(l.e.fio)}</span>${l.e.stat ? `<span class="l2">${statBadge(l.e)}</span>` : ''}
     <span class="l2">${kind}${flyIn(l)}</span>
     <span class="l2">${routeHtml(l)}${w}</span>
     <div class="tags">${statusPill(l)}${tkChip(l)}${btn ? `<span class="sp"></span>${btn}` : ''}</div></div></div>`;
@@ -411,6 +427,8 @@ VIEWS.req = {
     let h = demoBanner();
     h += `<div class="pagehead"><span class="date">${WDF[d.getDay()][0].toUpperCase() + WDF[d.getDay()].slice(1)}, ${d.getDate()} ${MONG[d.getMonth()]}</span><h2>Заявки и билеты</h2><button class="link" data-do="legend">${ic('help')}Что значат цвета</button></div>`;
     h += `<div class="stats">${stat(c.notk ? 'notk' : 'over', 'red', hot, 'Срочно', 'просрочено или нет билета', 'alert')}${stat('soon', 'org', c.soon, 'На этой неделе', `подать в ближайшие ${dney(+S('warn'))}`, 'clock')}${stat('sent', 'blu', c.sent, 'Ждём билет', 'заявка подана', 'req')}${stat('tk', 'grn', c.tk, 'Билеты есть', 'всё готово', 'ticket')}</div>`;
+    const lvs = staff().filter(e => leaving(e) && !hasHome(e) && byLvl(e));
+    if (lvs.length) h += `<div class="banner red">${ic('alert')}<span class="sp"><b>Уходят — нужен вылет домой:</b> ${lvs.map(e => `<button class="link" data-leave="${e.id}">${esc(short(e.fio))}</button> <span class="muted">(${e.statD ? (e.stat === 'fired' ? 'увольнение ' : 'контракт до ') + fd(e.statD) : (e.stat === 'fired' ? 'увольнение' : 'не продлевают') + ', дата не указана'})</span>`).join(', ')}</span></div>`;
     if (!hot && !c.soon) h += `<div class="allok">${ic('shield')}Срочного ничего нет: все заявки идут по графику</div>`;
     h += `<div class="toolbar">${searchBox('req', 'Поиск: ФИО, город')}<button class="btn" data-do="newtrip">${ic('plus')} Поездка</button></div>`;
     h += lvChips();
@@ -437,7 +455,7 @@ VIEWS.req = {
 };
 function emptyAll() {
   return `${demoBanner()}<div class="card empty" style="margin-top:20px">${ic('users')}<h3>Пока никого нет</h3><p>Добавьте сотрудников вручную, загрузите из Excel или примите файл с другого устройства.</p>
-  <div style="justify-content:center;display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn pri" data-do="newemp">${ic('plus')} Сотрудник</button><button class="btn" data-do="xlsin">${ic('xls')} Из Excel</button><button class="btn" data-do="import">${ic('inbox')} Принять файл</button><button class="btn" data-do="demo">Показать пример</button></div></div>`;
+  <div style="justify-content:center;display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn pri" data-do="newemp">${ic('plus')} Сотрудник</button><button class="btn" data-do="xlsin">${ic('upload')} Загрузить свои файлы</button><button class="btn" data-do="import">${ic('inbox')} Принять файл</button><button class="btn" data-do="demo">Показать пример</button></div></div>`;
 }
 
 /* ---------- График ---------- */
@@ -487,12 +505,13 @@ VIEWS.emp = {
   head() {
     const all = emps();
     if (!all.length) return emptyAll();
-    const nIss = all.filter(e => issues(e, nextLeg(e.id)).length).length;
+    const nIss = all.filter(e => !gone(e) && issues(e, nextLeg(e.id)).length).length;
+    const nLeave = all.filter(leaving).length, nGone = all.filter(gone).length;
     let h = demoBanner();
     const dd = dups();
     if (dd.length) h += `<div class="banner">${ic('alert')}<span class="sp">Похоже на дубли: ${dd.map(a => `<b>${esc(short(a[0].fio))}</b> ×${a.length}`).join(', ')}. Так бывает, если человека добавили и на телефоне, и на ПК.</span><button class="btn sm" data-do="dups">Объединить</button></div>`;
-    h += `<div class="pagehead"><h2>Сотрудники <span class="muted" style="font-weight:400">${all.length}</span></h2></div>`;
-    h += `<div class="toolbar">${searchBox('emp', 'ФИО, город, телефон, паспорт')}<div class="chips"><button class="chip ${F.emp === 'all' ? 'on' : ''}" data-f="emp:all">Все</button><button class="chip ${F.emp === 'iss' ? 'on' : ''}" data-f="emp:iss">${ic('alert')}Паспорт${nIss ? ` <span class="n">${nIss}</span>` : ''}</button><button class="chip ${F.emp === 'notrip' ? 'on' : ''}" data-f="emp:notrip">Без поездок</button></div>${isPC() ? `<button class="btn pri" data-do="newemp">${ic('plus')} Сотрудник</button>` : ''}</div>`;
+    h += `<div class="pagehead"><h2>Сотрудники <span class="muted" style="font-weight:400">${all.length - nGone}</span></h2></div>`;
+    h += `<div class="toolbar">${searchBox('emp', 'ФИО, город, телефон, паспорт')}<div class="chips"><button class="chip ${F.emp === 'all' ? 'on' : ''}" data-f="emp:all">Работают</button><button class="chip ${F.emp === 'iss' ? 'on' : ''}" data-f="emp:iss">${ic('alert')}Проблемы${nIss ? ` <span class="n">${nIss}</span>` : ''}</button><button class="chip ${F.emp === 'notrip' ? 'on' : ''}" data-f="emp:notrip">Без поездок</button>${nLeave || F.emp === 'leave' ? `<button class="chip ${F.emp === 'leave' ? 'on' : ''}" data-f="emp:leave">Уходят <span class="n">${nLeave}</span></button>` : ''}${nGone || F.emp === 'gone' ? `<button class="chip ${F.emp === 'gone' ? 'on' : ''}" data-f="emp:gone">Уволены <span class="n">${nGone}</span></button>` : ''}</div>${isPC() ? `<button class="btn pri" data-do="newemp">${ic('plus')} Сотрудник</button>` : ''}</div>`;
     h += lvChips();
     return h;
   },
@@ -501,7 +520,7 @@ VIEWS.emp = {
     const q = Q.emp;
     const rows = all.filter(byLvl).map(e => { const nl = nextLeg(e.id); return { e, nl, iss: issues(e, nl), nd: docsOf(e.id).length }; })
       .filter(x => matchQ(q, x.e.fio, x.e.lat, x.e.city, x.e.air, x.e.phone, x.e.email, x.e.pos, x.e.pass))
-      .filter(x => F.emp === 'all' || (F.emp === 'iss' && x.iss.length) || (F.emp === 'notrip' && !x.nl));
+      .filter(x => F.emp === 'gone' ? gone(x.e) : F.emp === 'leave' ? leaving(x.e) : !gone(x.e) && (F.emp === 'all' || (F.emp === 'iss' && x.iss.length) || (F.emp === 'notrip' && !x.nl)));
     if (!rows.length) return `<div class="card empty" style="margin-top:12px">${ic('search')}<h3>Никого не нашлось</h3></div>`;
     const pc = isPC();
     let h = '';
@@ -513,13 +532,13 @@ VIEWS.emp = {
       grp.forEach(({ e, nl, iss, nd }) => {
         const sel = SEL.has(e.id), w = warnHtml(iss);
         const docs = nd ? `<span class="i small muted">${ic('clip')}${nd} ${pl(nd, 'файл', 'файла', 'файлов')}</span>` : '<span class="small muted">фото нет</span>';
-        if (pc) h += `<div class="tr ${sel ? 'sel' : ''}" data-emp="${e.id}">${av(e)}
-          <div class="c"><span class="nm one">${esc(e.fio)}</span><span class="small muted one">${esc(e.pos || LV[lvOf(e)].one)}</span></div>
+        if (pc) h += `<div class="tr ${sel ? 'sel' : ''} ${gone(e) ? 'dim' : ''}" data-emp="${e.id}">${av(e)}
+          <div class="c"><span class="nm one">${esc(e.fio)}</span><span class="small muted one">${statBadge(e)} ${esc(e.pos || LV[lvOf(e)].one)}</span></div>
           <div class="c"><span class="one">${esc(e.city || '—')}</span>${e.air && e.air !== e.city ? `<span class="small muted one">вылет из: ${esc(e.air)}</span>` : ''}</div>
           <div class="c"><span class="one">${esc(e.phone || '—')}</span><span class="small muted one">${esc(e.email || '')}</span></div>
           <div class="c">${w ? `<div class="wrapt">${w}</div>` : `<span class="one">${e.pExp ? 'до ' + fd(e.pExp) : (e.pass ? 'есть' : '—')}</span>`}${docs}</div>
           <div class="c">${nl ? `<span class="l2"><span class="i">${ic(nl.k === 'o' ? 'up' : 'down')}${LEG[nl.k]} <b>${fd(nl.date)}</b></span>${flyIn(nl)}</span><div class="wrapt">${tkChip(nl)}</div>` : '<span class="muted small">поездок нет</span>'}</div></div>`;
-        else h += `<div class="row ${sel ? 'sel' : ''}" data-emp="${e.id}">${av(e)}<div class="mn"><span class="nm">${esc(e.fio)}</span>
+        else h += `<div class="row ${sel ? 'sel' : ''} ${gone(e) ? 'dim' : ''}" data-emp="${e.id}">${av(e)}<div class="mn"><span class="nm">${esc(e.fio)}</span>${e.stat ? `<span class="l2">${statBadge(e)}</span>` : ''}
           <span class="l2">${e.pos ? `<span>${esc(e.pos)}</span>` : ''}${e.city ? `<span class="i">${ic('pin')}${esc(e.city)}${e.air && e.air !== e.city ? ' · вылет из ' + esc(e.air) : ''}</span>` : ''}</span>
           ${e.phone || nd ? `<span class="l2">${e.phone ? `<span class="i">${ic('phone')}${esc(e.phone)}</span>` : ''}${nd ? `<span class="i">${ic('clip')}${nd}</span>` : ''}</span>` : ''}
           ${nl ? `<div class="tags"><span class="l2"><span class="i">${ic(nl.k === 'o' ? 'up' : 'down')}${fd(nl.date)}</span>${flyIn(nl)}</span>${tkChip(nl)}</div>` : '<span class="small muted">поездок нет</span>'}
@@ -560,9 +579,9 @@ VIEWS.sync = {
   </div>
   <div class="card"><h3>${ic('xls')}Excel</h3>
     <p>Выгрузка: сотрудники, поездки и сроки заявок, три листа. Загрузка из вашей таблицы добавит новых людей и обновит существующих (ищу по номеру паспорта, потом по ФИО); столбцы узнаю по названиям.</p>
-    <div class="btns"><button class="btn" data-do="xlsout">${ic('download')} Скачать Excel</button><button class="btn" data-do="xlsin">${ic('upload')} Загрузить из Excel</button></div>
+    <div class="btns"><button class="btn" data-do="xlsout">${ic('download')} Скачать Excel</button><button class="btn" data-do="xlsin">${ic('upload')} Загрузить свои Excel / Word</button></div>
     <div class="btns" style="margin-top:8px"><button class="btn sm" data-do="xlstpl">Пустой шаблон для заполнения</button></div>
-    <p class="small" style="margin:10px 0 0">Сюда же можно загрузить ваши старые заявки рабочих (Excel) — люди и их паспортные данные подтянутся.</p>
+    <p class="small" style="margin:10px 0 0">«Загрузить свои Excel / Word» подходит для любых ваших таблиц учёта, даже если в них меньше данных или столбцы называются по-другому: программа покажет, что в каком столбце, и даст поправить. Можно выбрать сразу несколько файлов, в том числе старые заявки рабочих и заявки Word на билеты. На ПК файлы можно просто перетащить в окно.</p>
   </div>
   <div class="card"><h3>${ic('doc')}Бланки заявок</h3><p>По ним раздел «Оформить» делает файлы. Если поменяются подписанты или форма — исправьте бланк в Word/Excel и загрузите сюда.</p><div id="tplInfo"></div></div></div><div>
   <div class="card"><h3>${ic('cal')}Напоминания в календарь</h3>
@@ -588,6 +607,7 @@ VIEWS.sync = {
 function bindHead(v) {
   $$('[data-q]', v).forEach(i => i.oninput = () => { Q[i.dataset.q] = i.value; renderList(); });
   $$('[data-f]', v).forEach(b => b.onclick = () => { const [k, val] = b.dataset.f.split(':'); if (k === 'past') F.past = !F.past; else F[k] = val; render(); });
+  $$('[data-leave]', v).forEach(b => b.onclick = () => leaveDlg(b.dataset.leave));
   $$('[data-lvl]', v).forEach(b => b.onclick = () => { F.lvl = b.dataset.lvl; SEL.clear(); render(); });
   $$('[data-jump]', v).forEach(b => b.onclick = () => {
     const k = b.dataset.jump;
@@ -642,7 +662,7 @@ function bulkBar() {
 async function bulk(a) {
   const keys = [...SEL];
   if (a === 'clr') { SEL.clear(); return renderList(); }
-  if (a === 'all') { emps().filter(byLvl).forEach(e => SEL.add(e.id)); return renderList(); }
+  if (a === 'all') { (F.emp === 'gone' ? emps().filter(gone) : staff()).filter(byLvl).forEach(e => SEL.add(e.id)); return renderList(); }
   if (a === 'sent' || a === 'tk') return mark(keys, a);
   if (a === 'reqxls') return reqXlsx(keys.map(legByKey).filter(Boolean));
   if (a === 'copy') return copyReq(keys.map(legByKey).filter(Boolean));
@@ -696,6 +716,8 @@ function editEmp(id, preset) {
   const commit = () => { if (!D.emp[r.id] && (r.fio || '').trim()) D.emp[r.id] = r; save(false); };
   const fld = (k, label, type = 'text', extra = '') => `<label class="fld"><span>${label}</span><input type="${type}" data-f="${k}" value="${esc(r[k] || '')}" ${extra}></label>`;
   const issHtml = () => { const iss = D.emp[r.id] ? issues(r, nextLeg(r.id)) : []; return iss.length ? `<div class="banner ${iss.some(x => x[1] === 'red') ? 'red' : ''}" style="margin:0 0 6px">${ic('alert')}<span class="sp">${iss.map(x => x[0]).join(', ')}</span></div>` : ''; };
+  const statHtml = () => r.stat ? `<div class="statbox ${gone(r) ? 'gone' : 'leave'}">${ic('alert')}<div class="sp"><b>${STATN[r.stat]}</b>${r.statD ? ` · ${r.stat === 'fired' ? 'дата увольнения' : 'контракт до'} ${fd(r.statD)}` : ''}${r.statNote ? `<div class="small">${esc(r.statNote)}</div>` : ''}${leaving(r) && !hasHome(r) ? '<div class="small" style="color:var(--red);font-weight:650">Нет вылета домой</div>' : ''}</div><button type="button" class="btn sm" data-leavebtn>Изменить</button></div>`
+    : `<button type="button" class="link" data-leavebtn style="margin-top:6px">${ic('alert')}Не продлевают контракт или увольнение…</button>`;
   const headHtml = () => `<div class="ehead">${av(r, 1).replace('data-av', 'data-avx')}<div style="min-width:0"><div class="nm">${esc(r.fio || 'Новый сотрудник')}</div><div class="small muted">${lvTag(r)}${r.pos ? ' · ' + esc(r.pos) : ''}</div></div></div>`;
   const docsHtml = () => `<div class="docs">${docsOf(r.id).map(d => `<button type="button" class="doc ${HAVE.has(d.id) ? '' : 'miss'}" data-doc="${d.id}" title="${esc(d.name || '')}">${/^image\//.test(d.type) && HAVE.has(d.id) ? `<img data-thumb="${d.id}" alt="">` : HAVE.has(d.id) ? ic('file') + 'PDF' : ic('image') + 'на другом устройстве'}<span class="k">${KIND[d.kind] || 'Документ'}</span></button>`).join('')}</div>`;
   const body = () => {
@@ -703,6 +725,7 @@ function editEmp(id, preset) {
     return `<div id="eHead">${headHtml()}</div><div id="issBox">${issHtml()}</div>
     <div class="grp">Уровень</div>
     <div class="seg lvls" data-lvseg>${Object.entries(LV).map(([k, v]) => `<button type="button" data-v="${k}" class="${v.c} ${lvOf(r) === k ? 'on' : ''}">${ic(v.i)}${v.n}</button>`).join('')}</div>
+    <div id="statBox">${statHtml()}</div>
     <div class="grp">Сотрудник</div>
     ${fld('fio', 'ФИО *', 'text', 'placeholder="Фамилия Имя Отчество" autocomplete="off" autocapitalize="words"')}
     ${fld('lat', 'ФИО латиницей, как в загранпаспорте', 'text', 'placeholder="IVANOV IVAN" style="text-transform:uppercase" autocomplete="off" autocapitalize="characters"')}
@@ -728,7 +751,7 @@ function editEmp(id, preset) {
     <div class="grp">Поездки <span class="n">${tl.length || ''}</span></div>
     ${tl.map(t => {
       const ls = legsOf(t);
-      return `<div class="tripc" data-trip="${t.id}">${ls.map(l => `<div class="l">${ic(l.k === 'o' ? 'up' : 'down')}<b>${LEG[l.k]} ${fd(l.date)}</b>${flyIn(l)}${routeHtml(l)}</div><div class="l" style="padding-left:23px">${tkChip(l)}${statusPill(l)}</div>`).join('') || '<span class="muted">даты не указаны</span>'}</div>`;
+      return `<div class="tripc" data-trip="${t.id}">${ls.map(l => `<div class="l">${ic(l.k === 'o' ? 'up' : 'down')}<b>${LEG[l.k]} ${fd(l.date)}</b>${flyIn(l)}${routeHtml(l)}</div><div class="l" style="padding-left:23px">${afterLeave(r, l.date) ? '<span class="pill gry">после ухода — не летит</span>' : tkChip(l) + statusPill(l)}${(l.t[l.k + 'Why'] || '') === 'Увольнение' ? '<span class="sbadge leave">увольнение</span>' : ''}</div>`).join('') || '<span class="muted">даты не указаны</span>'}</div>`;
     }).join('')}
     <button type="button" class="btn" data-addtrip style="width:100%">${ic('plus')} Добавить поездку</button>
     <div class="grp">Заметка</div>
@@ -767,6 +790,7 @@ function editEmp(id, preset) {
       el.querySelector('#eHead').innerHTML = headHtml();
     });
     links(); bindDocs();
+    $$('[data-leavebtn]', el).forEach(b => b.onclick = () => { if (!(r.fio || '').trim()) { toast('Сначала введите ФИО'); return; } commit(); leaveDlg(r.id, 2, redraw); });
     $$('[data-trip]', el).forEach(c => c.onclick = () => editTrip(c.dataset.trip, null, 2, redraw));
     el.querySelector('[data-addtrip]').onclick = () => {
       if (!(r.fio || '').trim()) { toast('Сначала введите ФИО'); el.querySelector('[data-f="fio"]').focus(); return; }
@@ -943,7 +967,7 @@ function editTrip(id, preset, level = 1, after) {
   const body = () => {
     const em = e();
     return `${exist || (preset && preset.emp) ? `<div class="card" style="padding:10px 12px;margin-bottom:12px;display:flex;gap:11px;align-items:center">${em ? av(em).replace('data-av', 'data-avx') : ''}<div style="min-width:0"><div class="nm">${esc(em ? em.fio : '')}</div><div class="small muted">${em ? lvTag(em) : ''}${em && (em.air || em.city) ? ' · вылетает из ' + esc(em.air || em.city) : ''}</div></div></div>`
-      : `<label class="fld"><span>Сотрудник *</span><select data-f="emp"><option value="">— выберите —</option>${['b', 'm', 'w'].map(lk => { const es = emps().filter(x => lvOf(x) === lk); return es.length ? `<optgroup label="${LV[lk].n}">${es.map(x => `<option value="${x.id}" ${x.id === r.emp ? 'selected' : ''}>${esc(x.fio)}${x.city ? ' · ' + esc(x.city) : ''}</option>`).join('')}</optgroup>` : ''; }).join('')}</select></label>`}
+      : `<label class="fld"><span>Сотрудник *</span><select data-f="emp"><option value="">— выберите —</option>${['b', 'm', 'w'].map(lk => { const es = emps().filter(x => lvOf(x) === lk && (!gone(x) || x.id === r.emp)); return es.length ? `<optgroup label="${LV[lk].n}">${es.map(x => `<option value="${x.id}" ${x.id === r.emp ? 'selected' : ''}>${esc(x.fio)}${x.city ? ' · ' + esc(x.city) : ''}</option>`).join('')}</optgroup>` : ''; }).join('')}</select></label>`}
       ${legBlock('o')}${legBlock('b')}
       <p class="small muted" style="margin:-4px 2px 12px">Пустые «Откуда / Куда» заполняются сами: туда — из города вылета сотрудника на объект, обратно — с объекта в его город.</p>
       <label class="fld"><span>Заметка</span><textarea data-f="note" placeholder="Например: багаж, пересадка">${esc(r.note || '')}</textarea></label>
@@ -991,6 +1015,75 @@ function groupTrip(ids) {
     names.forEach(e => { const r = { id: uid(), _t: {} }; setF(r, 'emp', e.id); for (const k in g) if (g[k]) setF(r, k, g[k]); D.trip[r.id] = r; });
     SEL.clear(); save(); closeSheet(1); render(); toast('Поездки созданы: ' + names.length);
   };
+}
+
+/* ---------- уход сотрудника: не продлевают контракт / увольнение ---------- */
+function leaveDlg(eid, level = 1, after) {
+  const e = D.emp[eid]; if (!e) return;
+  const st = { type: e.stat || 'end', date: e.statD || '', note: e.statNote || '', home: !hasHome(e), hD: '', hFrom: '', hTo: '', del: true };
+  const curObj = () => { const t = tripsOf(eid).filter(t => validIso(t.oD) && (!st.date || t.oD <= st.date)).pop(); return (t && route(t, 'o')[1]) || commonDest(); };
+  st.obj = curObj;
+  const body = () => {
+    const lim = validIso(st.date) ? addD(st.date, 7) : null, isF = st.type === 'fired';
+    const aft = lim ? trips().filter(t => t.emp === eid).flatMap(legsOf).filter(l => l.date > lim) : [];
+    return `<div class="ehead">${av(e, 1).replace('data-av', 'data-avx')}<div style="min-width:0"><div class="nm">${esc(e.fio)}</div><div class="small muted">${lvTag(e)}${e.pos ? ' · ' + esc(e.pos) : ''}</div></div></div>
+    <div class="grp">Что случилось</div>
+    <div class="seg" data-lt><button type="button" data-v="end" class="${st.type === 'end' ? 'on' : ''}">Не продлевают контракт</button><button type="button" data-v="fired" class="r ${st.type === 'fired' ? 'on' : ''}">Увольнение</button>${e.stat ? `<button type="button" data-v="" class="g ${st.type === '' ? 'on' : ''}">Снова работает</button>` : ''}</div>
+    ${st.type ? `<div class="cols" style="margin-top:12px"><label class="fld"><span>${isF ? 'Дата увольнения' : 'Контракт заканчивается'} *</span><input type="date" data-lf="date" value="${esc(st.date)}"></label><div></div></div>
+    <label class="fld"><span>Причина, комментарий</span><input data-lf="note" value="${esc(st.note)}" placeholder="${isF ? 'например, по собственному желанию' : 'например, решение руководства'}" autocomplete="off"></label>
+    <div class="grp">Вылет домой</div>
+    <label class="chk"><input type="checkbox" data-lf="home" ${st.home ? 'checked' : ''}><span>Оформить вылет домой с причиной «Увольнение»${hasHome(e) ? '. Вылет домой уже есть — изменю его' : ''}</span></label>
+    ${st.home ? `<div class="cols"><label class="fld"><span>Дата вылета домой</span><input type="date" data-lf="hD" value="${esc(st.hD || st.date)}"></label><div></div></div>
+    <div class="cols"><label class="fld"><span>Откуда</span><input data-lf="hFrom" value="${esc(st.hFrom)}" placeholder="${esc(curObj() || 'объект')}" autocomplete="off"></label><label class="fld"><span>Куда</span><input data-lf="hTo" value="${esc(st.hTo)}" placeholder="${esc(e.air || e.city || 'домой')}" autocomplete="off"></label></div>` : ''}
+    ${aft.length ? `<div class="grp">Рейсы после ухода</div><label class="chk"><input type="checkbox" data-lf="del" ${st.del ? 'checked' : ''}><span>Удалить: ${aft.map(l => `${LEG[l.k].toLowerCase()} ${fd(l.date)}`).join(', ')}</span></label>` : ''}
+    <p class="small muted">Человек останется в программе со всеми данными. После даты ухода он уйдёт из списков в фильтр «Уволены», вылет домой попадёт в заявки как обычно.</p>`
+    : `<p class="muted" style="margin-top:12px">Сотрудник снова будет в списках как работающий. Поездки не изменятся.</p>`}`;
+  };
+  const el = openSheet(level, 'Уход сотрудника', body(), `<button class="btn" data-x>Отмена</button><button class="btn pri" data-ok>${ic('check')} Сохранить</button>`, () => { if (after) after(); else render(); });
+  const redraw = () => { const b = el.querySelector('.sh-b'), sc = b.scrollTop; b.innerHTML = body(); bind(); b.scrollTop = sc; };
+  const bind = () => {
+    $$('[data-lt] button', el).forEach(b => b.onclick = () => { st.type = b.dataset.v; redraw(); });
+    $$('[data-lf]', el).forEach(i => {
+      const k = i.dataset.lf;
+      if (i.type === 'checkbox') i.onchange = () => { st[k] = i.checked; redraw(); };
+      else { i.oninput = () => { st[k] = i.value.trim(); }; i.onchange = () => { st[k] = i.value.trim(); if (k === 'date') redraw(); }; }
+    });
+  };
+  bind();
+  el.querySelector('[data-x]').onclick = () => closeSheet(level);
+  el.querySelector('[data-ok]').onclick = () => {
+    if (st.type && !validIso(st.date)) return toast('Укажите дату');
+    const r = applyLeave(e, st); closeSheet(level);
+    toast(!st.type ? 'Снова работает' : `Сохранено${r.home ? ', вылет домой ' + fd(r.home) : ''}${r.del ? ', удалено рейсов: ' + r.del : ''}`, 4000);
+  };
+}
+function commonDest() {
+  if (S('dest')) return S('dest');
+  const c = {}; trips().forEach(t => { const d = route(t, 'o')[1]; if (d) c[d] = (c[d] || 0) + 1; });
+  return (Object.entries(c).sort((a, b) => b[1] - a[1])[0] || [''])[0];
+}
+function applyLeave(e, st) {
+  const res = { home: '', del: 0 };
+  if (!st.type) { ['stat', 'statD', 'statNote'].forEach(k => setF(e, k, '')); save(); return res; }
+  setF(e, 'stat', st.type); setF(e, 'statD', st.date); setF(e, 'statNote', st.note);
+  const lim = addD(st.date, 7);
+  if (st.del) trips().filter(t => t.emp === e.id).forEach(t => {
+    const hasO = validIso(t.oD), hasB = validIso(t.bD), o = hasO && t.oD > lim, b = hasB && t.bD > lim;
+    if ((!hasO || o) && (!hasB || b)) { delRec(t); res.del += (hasO ? 1 : 0) + (hasB ? 1 : 0); }
+    else if (b) { ['bD', 'bS', 'bSent', 'bTk'].forEach(k => setF(t, k, '')); res.del++; }
+    else if (o) { ['oD', 'oS', 'oSent', 'oTk'].forEach(k => setF(t, k, '')); res.del++; }
+  });
+  if (st.home) {
+    const hD = validIso(st.hD) ? st.hD : st.date, mine = trips().filter(t => t.emp === e.id);
+    let t = mine.find(x => x.bWhy === 'Увольнение') || mine.filter(x => validIso(x.oD) && x.oD <= hD && (!validIso(x.bD) || x.bD >= addD(hD, -21))).sort((a, b) => b.oD.localeCompare(a.oD))[0];
+    if (!t) { t = { id: uid(), _t: {} }; setF(t, 'emp', e.id); D.trip[t.id] = t; }
+    if (t.bD !== hD) { setF(t, 'bD', hD); ['bS', 'bSent', 'bTk'].forEach(k => setF(t, k, '')); }
+    setF(t, 'bWhy', 'Увольнение');
+    const from = st.hFrom || (st.obj ? st.obj() : '') || commonDest(), to = st.hTo || e.air || e.city || '';
+    if (from && (st.hFrom || !t.bFrom)) setF(t, 'bFrom', from); if (to && (st.hTo || !t.bTo)) setF(t, 'bTo', to);
+    res.home = hD;
+  }
+  save(); return res;
 }
 async function mergeDups() {
   let n = 0;
@@ -1065,7 +1158,8 @@ async function importAny(file) {
   if (!file) return;
   const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
   const isZip = head[0] === 0x50 && head[1] === 0x4b;
-  if (isZip || /\.(xlsx|xlsm|csv)$/i.test(file.name)) return importExcel(file);
+  if (head[0] === 0xD0 && head[1] === 0xCF) return startImport([file]);
+  if (isZip || /\.(xlsx|xlsm|csv|docx)$/i.test(file.name)) return startImport([file]);
   if (/^image\/|application\/pdf/.test(file.type) || /\.(jpe?g|png|pdf|heic|webp)$/i.test(file.name)) {
     if (curEmp && $('#sheet1')._addDocs) return $('#sheet1')._addDocs([file]);
     return ask({ title: 'Это фото или PDF', text: 'Чтобы прикрепить документ, откройте карточку сотрудника и перетащите файл туда.', cancel: null });
@@ -1131,11 +1225,11 @@ function merge(obj) {
 }
 
 /* ---------- Excel ---------- */
-const EMP_COLS = [['fio', 'ФИО', 32], ['lat', 'ФИО латиницей', 26], ['lvl', 'Уровень', 16], ['pos', 'Должность', 20], ['tab', 'Табельный номер', 14], ['city', 'Базовый город', 18], ['air', 'Город вылета', 16], ['phone', 'Телефон', 18], ['wphone', 'Рабочий телефон', 18], ['email', 'Почта', 26], ['cit', 'Гражданство', 14], ['birth', 'Дата рождения', 13, 1], ['bplace', 'Место рождения', 20], ['pass', 'Паспорт №', 15], ['pIss', 'Дата выдачи', 13, 1], ['pExp', 'Действует до', 13, 1], ['mvz', 'МВЗ', 10], ['stay', 'Срок пребывания', 12]];
+const EMP_COLS = [['fio', 'ФИО', 32], ['lat', 'ФИО латиницей', 26], ['lvl', 'Уровень', 16], ['pos', 'Должность', 20], ['tab', 'Табельный номер', 14], ['city', 'Базовый город', 18], ['air', 'Город вылета', 16], ['phone', 'Телефон', 18], ['wphone', 'Рабочий телефон', 18], ['email', 'Почта', 26], ['cit', 'Гражданство', 14], ['birth', 'Дата рождения', 13, 1], ['bplace', 'Место рождения', 20], ['pass', 'Паспорт №', 15], ['pIss', 'Дата выдачи', 13, 1], ['pExp', 'Действует до', 13, 1], ['mvz', 'МВЗ', 10], ['stay', 'Срок пребывания', 12], ['stat', 'Статус', 20], ['statD', 'Дата ухода', 13, 1]];
 const cell = (v, isDate) => isDate ? (validIso(v) ? { d: v } : '') : (v || '');
 const ST_RU = { '': 'нет заявки', sent: 'заявка подана', tk: 'билет есть' };
 const REASONS = ['Межсменка', 'Перевизовка', 'Увольнение', 'Учебный отпуск', 'Экстренно', 'Ежегодный отпуск'];
-const empVal = (e, k) => k === 'lvl' ? LV[lvOf(e)].one : e[k];
+const empVal = (e, k) => k === 'lvl' ? LV[lvOf(e)].one : k === 'stat' ? (STATN[e.stat] || 'Работает') : e[k];
 async function exportXlsx(onlyIds) {
   const es = emps().filter(e => !onlyIds || onlyIds.includes(e.id));
   const ids = new Set(es.map(e => e.id)), lead = +S('lead');
@@ -1178,20 +1272,36 @@ async function xlsTemplate() {
   const blob = await XL.write([{ name: 'Сотрудники', rows, head: true, widths: [...EMP_COLS.map(c => c[2]), 13, 16, 16, 13, 16, 24] }]);
   await shareOrDownload(blob, 'Шаблон Вылеты.xlsx', blob.type, false);
 }
-function mapHeader(h) {
-  const s = norm(h).replace(/[.:]/g, '');
-  if (!s || /заявк|статус|подан|ближайш|осталось|дней до|^№|^n$|кем выдан|рейс|документ|фото/.test(s)) return null;
-  if (/межсмен/.test(s)) return null;
-  if (/ф\s*и\s*о/.test(s.replace(/\./g, ' ')) && /лат/.test(s)) return 'fiolat';
+/* ---------- ЗАГРУЗКА СВОИХ ФАЙЛОВ: Excel, CSV, Word (таблицы и заявки-анкеты) ---------- */
+const IMPF = [
+  ['Человек', [['fio', 'ФИО полностью'], ['fiolat', 'ФИО «по-русски / латиницей»'], ['fam', 'Фамилия'], ['nam', 'Имя'], ['otc', 'Отчество'], ['lat', 'ФИО латиницей'], ['birth', 'Дата рождения'], ['bplace', 'Место рождения'], ['cit', 'Гражданство']]],
+  ['Работа', [['pos', 'Должность'], ['lvl', 'Уровень (рабочий / ИТР / руководство)'], ['tab', 'Табельный номер'], ['mvz', 'Код МВЗ'], ['stay', 'Срок пребывания'], ['stat', 'Статус (работает / не продлевают / уволен)'], ['statD', 'Дата ухода (увольнения, конца контракта)']]],
+  ['Паспорт', [['pass', 'Паспорт: серия и номер'], ['pser', 'Серия паспорта'], ['pnum', 'Номер паспорта'], ['pIss', 'Дата выдачи паспорта'], ['pExp', 'Паспорт действует до']]],
+  ['Контакты и города', [['phone', 'Мобильный телефон'], ['wphone', 'Рабочий телефон'], ['email', 'Эл. почта'], ['city', 'Базовый город'], ['air', 'Город вылета']]],
+  ['Поездки', [['oD', 'Дата вылета (на объект)'], ['bD', 'Дата прилёта / обратного рейса'], ['tripD', 'Дата поездки (направление — по маршруту)'], ['route', 'Маршрут «Откуда-Куда»'], ['oFrom', 'Откуда (вылет)'], ['oTo', 'Куда (вылет)'], ['bFrom', 'Откуда (обратно)'], ['bTo', 'Куда (обратно)'], ['why', 'Причина поездки'], ['tk', 'Рейс / бронь'], ['oTk', 'Рейс (вылет)'], ['bTk', 'Рейс (прилёт)'], ['tkst', 'Билет / заявка: есть, куплен, подана'], ['oSt', 'Статус вылета (заявка / билет)'], ['bSt', 'Статус прилёта (заявка / билет)']]],
+  ['Другое', [['note', 'Заметка (добавить к заметке)']]],
+];
+const IMPL = Object.fromEntries(IMPF.flatMap(g => g[1]));
+const IM_DATES = new Set(['birth', 'pIss', 'pExp', 'oD', 'bD', 'tripD', 'statD']);
+const IM_EMP = ['fio', 'lat', 'lvl', 'pos', 'tab', 'city', 'air', 'phone', 'wphone', 'email', 'cit', 'birth', 'bplace', 'pass', 'pIss', 'pExp', 'mvz', 'stay', 'stat', 'statD'];
+function guessField(h, ctx = {}) {
+  const s = norm(h).replace(/[.:«»"()]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  if (/^№|^n$|^п\/п|^#$|^номер п|ближайш|осталось|дней до|срок заявки|документ|фото|^заявка$|^подана$|кем выдан|стоимост|итого|межсмен/.test(s)) return '';
+  if (/статус/.test(s)) { if (/вылет/.test(s)) return 'oSt'; if (/прил|обрат/.test(s)) return 'bSt'; return 'stat'; }
+  if (/рейс|бронь/.test(s)) { if (/дата/.test(s)) return 'tripD'; if (/вылет/.test(s)) return 'oTk'; if (/прил|обрат/.test(s)) return 'bTk'; return 'tk'; }
+  if (/^билет/.test(s)) return 'tkst';
+  if (/ф\s*и\s*о/.test(s) && /лат/.test(s)) return 'fiolat';
+  if (/увол|контракт|ухода|договор до/.test(s)) return /дата|до|оконч|ухода/.test(s) ? 'statD' : 'stat';
   if (/табел/.test(s)) return 'tab';
   if (/место рожд/.test(s)) return 'bplace';
   if (/рабоч.*тел/.test(s)) return 'wphone';
   if (/мвз|подразделен/.test(s)) return 'mvz';
   if (/пребыван/.test(s)) return 'stay';
-  if (/окончан/.test(s)) return 'pExp';
-  if (/маршрут/.test(s)) return 'route';
-  if (/дата поездки|дата отправлен/.test(s)) return 'tripD';
-  if (/причин|цель поездки/.test(s)) return 'why';
+  if (/окончан|действ|годен|expir/.test(s)) return 'pExp';
+  if (/маршрут|направлен/.test(s)) return 'route';
+  if (/дата поездки|дата отправлен|дата выезда/.test(s)) return 'tripD';
+  if (/причин|цель/.test(s)) return 'why';
   const back = /прил[её]т|обрат|возвр/.test(s);
   if (/откуда/.test(s)) return back ? 'bFrom' : 'oFrom';
   if (/куда/.test(s)) return back ? 'bTo' : 'oTo';
@@ -1199,98 +1309,282 @@ function mapHeader(h) {
   if (/уровень|категор/.test(s)) return 'lvl';
   if (/лат|latin|англ|english/.test(s)) return 'lat';
   if (/рожд|birth/.test(s)) return 'birth';
-  if (/действ|срок|expir|годен/.test(s)) return 'pExp';
   if (/выдач|issue/.test(s)) return 'pIss';
+  if (/^серия/.test(s) && ctx.hasNum) return 'pser';
+  if (/^номер( паспорта)?$/.test(s) && ctx.hasSer) return 'pnum';
   if (/паспорт|passport|серия|номер док/.test(s)) return 'pass';
   if (/граждан|citizen/.test(s)) return 'cit';
-  if (/фио|ф и о|сотрудник|фамилия|работник|^имя|^name/.test(s)) return 'fio';
-  if (/должн|профес|position/.test(s)) return 'pos';
+  if (/^фамилия$/.test(s) && ctx.hasName) return 'fam';
+  if (/^имя$/.test(s)) return 'nam';
+  if (/^отчество$/.test(s)) return 'otc';
+  if (/фио|ф и о|сотрудник|фамилия|работник|^имя|^name|^ф и о/.test(s)) return 'fio';
+  if (/должн|профес|position|специальн/.test(s)) return 'pos';
   if (/назнач|объект/.test(s)) return 'oTo';
-  if (/вылет|отъезд|туда/.test(s)) return 'oD';
-  if (back || /приезд/.test(s)) return 'bD';
-  if (/город|city/.test(s)) return 'city';
+  if (/вылет|отъезд|туда|заезд/.test(s)) return 'oD';
+  if (back || /приезд|выезд/.test(s)) return 'bD';
+  if (/город|city|прожив/.test(s)) return 'city';
   if (/тел|phone|моб/.test(s)) return 'phone';
   if (/почт|mail/.test(s)) return 'email';
-  if (/замет|примеч|коммент|note/.test(s)) return 'note';
-  return null;
+  if (/замет|примеч|коммент|note|инфо/.test(s)) return 'note';
+  return '';
+}
+function sniffField(vals) {
+  const v = vals.filter(x => x !== '' && x != null).slice(0, 15).map(x => typeof x === 'object' && x.d ? '' : String(x).trim()).filter(Boolean);
+  if (v.length < 1) return '';
+  const share = re => v.filter(x => re.test(x)).length / v.length;
+  if (share(/^[^\s@]+@[^\s@]+\.\w{2,}$/) > .6) return 'email';
+  if (share(/^[A-Z][A-Za-z'\-]+(\s+[A-Z][A-Za-z'\-]+)+$/) > .6) return 'lat';
+  if (share(/^[А-ЯЁ][А-ЯЁа-яё\-]+(\s+[А-ЯЁ][А-ЯЁа-яё\-]+){1,3}$/) > .6) return 'fio';
+  if (share(/^\+?[\d\s\-()]{10,}$/) > .6 && v.every(x => x.replace(/\D/g, '').length >= 10)) return 'phone';
+  if (share(/^\d{2}\s?\d{2}\s?\d{6}$|^\d{2}\s\d{7}$|^[A-Z]{1,2}\s?\d{6,7}$/) > .6) return 'pass';
+  if (share(/^[А-ЯЁ][а-яё\- ]+\s*[-–—]\s*[А-ЯЁ][а-яё\- ]+$/) > .6) return 'route';
+  return '';
 }
 const parseLvl = v => { const s = norm(v); if (!s) return ''; if (/рук|нач|дир|глав|шеф|топ/.test(s)) return 'b'; if (/маст|офис|итр|инж|прораб|бригад|снаб|бухг|кадр|менедж|специал|пто/.test(s)) return 'm'; if (/раб/.test(s)) return 'w'; return ''; };
+const parseStat = (v, hdr) => { const s = norm(v); if (!s) return null; if (/увол/.test(s)) return 'fired'; if (/не прод|оконч|истек|заверш|конец контр/.test(s)) return 'end'; if (/работ|актив|продл/.test(s)) return ''; if (/^(да|\+|yes|1|✓|x|х)$/.test(s)) return /увол/.test(norm(hdr)) ? 'fired' : /контр|прод/.test(norm(hdr)) ? 'end' : null; if (/^(нет|-|no|0)$/.test(s)) return ''; return null; };
+const parseTk = v => { const s = norm(v); if (!s) return ''; if (/билет есть|куплен|есть|^да$|^\+$|yes|✓|^x$|^х$/.test(s)) return 'tk'; if (/подан|заявк/.test(s)) return 'sent'; return ''; };
+const MONR = ['янв', 'фев', 'мар', 'апр', 'ма', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 function toIso(v) {
   if (v == null || v === '') return '';
   if (typeof v === 'object' && v.d) return v.d;
   if (typeof v === 'number') return v > 20000 && v < 80000 ? XL.serialToIso(v) : '';
-  const s = String(v).trim();
+  const s = String(v).trim().toLowerCase().replace(/г\.?$/, '').trim();
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
-  m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  m = s.match(/^(\d{1,2})[./\-\s](\d{1,2})[./\-\s](\d{2,4})$/);
   if (m) { let y = +m[3]; if (y < 100) y += y > 50 ? 1900 : 2000; if (+m[2] < 1 || +m[2] > 12 || +m[1] < 1 || +m[1] > 31) return ''; return `${y}-${pad(m[2])}-${pad(m[1])}`; }
+  m = s.match(/^(\d{1,2})\s+([а-яё]+)\.?\s+(\d{4})/);
+  if (m) { const mi = MONR.findIndex((p, i) => i === 4 ? /^ма[йя]/.test(m[2]) : m[2].startsWith(p)); if (mi >= 0) return `${m[3]}-${pad(mi + 1)}-${pad(m[1])}`; }
   return '';
 }
-async function importExcel(file) {
-  let sheets;
-  try { sheets = /\.csv$/i.test(file.name) ? XL.readCsv(await file.text()) : await XL.read(await file.arrayBuffer()); }
-  catch (e) { return ask({ title: 'Не получилось прочитать Excel', text: 'Сохраните файл как .xlsx и попробуйте снова.\n' + esc(e.message), cancel: null }); }
-  const DATES = new Set(['birth', 'pIss', 'pExp', 'oD', 'bD', 'tripD']);
-  const found = [];
-  for (const sh of sheets) {
-    let best = null;
-    for (let ri = 0; ri < Math.min(12, sh.rows.length); ri++) {
-      const map = {}; (sh.rows[ri] || []).forEach((h, ci) => { const k = mapHeader(h); if (k && !(k in map)) map[k] = ci; });
-      const score = Object.keys(map).length;
-      if ('fiolat' in map && !('fio' in map)) { map.fio = map.fiolat; }
-      if ('fio' in map && Object.keys(map).some(k => !['fio', 'oFrom', 'oTo', 'bFrom', 'bTo', 'lvl'].includes(k)) && (!best || score > best.score)) best = { sh, ri, map, score };
-    }
-    if (best) found.push(best);
+const titleCase = s => s.toLowerCase().replace(/(^|[\s\-])([а-яёa-z])/g, (a, b, c) => b + c.toUpperCase());
+const cellStr = v => v == null ? '' : (typeof v === 'object' && v.d ? fd(v.d) : (typeof v === 'number' && Number.isInteger(v) ? String(v) : String(v))).replace(/ /g, ' ').trim();
+const reasonOf = v => { const s = norm(v); if (!s) return ''; const r = REASONS.find(x => norm(x) === s || norm(x).startsWith(s.slice(0, 5))); return r || String(v).trim(); };
+
+/* таблица → записи */
+function imHeaderRow(rows) {
+  let best = -1, bs = 1;
+  for (let ri = 0; ri < Math.min(15, rows.length); ri++) {
+    const hs = (rows[ri] || []).map(cellStr), ctx = imCtx(hs);
+    const sc = hs.filter(h => h && guessField(h, ctx)).length;
+    if (sc > bs || (sc === bs && best < 0 && sc >= 2)) { bs = sc; best = ri; }
   }
-  if (!found.length) return ask({ title: 'Не нашёл столбец с ФИО', text: 'В первой строке таблицы должны быть названия столбцов: ФИО, Паспорт, Телефон, Почта, Город, Дата вылета, Дата прилёта… Скачайте шаблон в разделе «Обмен», там всё подписано.', cancel: null });
+  return bs >= 2 ? best : -1;
+}
+const imCtx = hs => { const n = hs.map(h => norm(h).replace(/[.:]/g, '')); return { hasName: n.some(h => /^имя$/.test(h)), hasSer: n.some(h => /^серия/.test(h)), hasNum: n.some(h => /^номер( паспорта)?$/.test(h)) }; };
+function imAutoMap(src) {
+  const rows = src.rows, hdr = src.hdr, ncol = Math.max(0, ...rows.slice(0, 60).map(r => r.length));
+  const hs = hdr >= 0 ? (rows[hdr] || []).map(cellStr) : [];
+  const key = hs.map(norm).join('|');
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('vylety.maps') || '{}')[key]; } catch (e) { return null; } })();
+  if (saved && key.replace(/\|/g, '')) { src.map = { ...saved }; src.remembered = true; return; }
+  const ctx = imCtx(hs), map = {}, used = new Set();
+  const data = rows.slice(hdr + 1, hdr + 41);
+  for (let c = 0; c < ncol; c++) {
+    let f = hs[c] ? guessField(hs[c], ctx) : '';
+    if (!f && (!hs[c] || hdr < 0)) f = sniffField(data.map(r => r[c]));
+    if (f && f !== 'note' && used.has(f)) f = '';
+    if (f) { used.add(f); map[c] = f; }
+  }
+  if (map && Object.values(map).includes('fam') && !Object.values(map).includes('nam')) for (const c in map) if (map[c] === 'fam') map[c] = 'fio';
+  src.map = map;
+}
+const STOPROW = /^\s*\*|^исполнитель|^согласовано|^проверил|^утверждаю|^итого/i;
+function imRecords(src) {
+  if (src.kind === 'forms') return src.recs;
+  const out = [], map = src.map, hs = src.hdr >= 0 ? (src.rows[src.hdr] || []).map(cellStr) : [];
+  for (const row of src.rows.slice(src.hdr + 1)) {
+    if (row.some(c => typeof c === 'string' && STOPROW.test(c.trim()))) break;
+    const g = { legs: [] }, notes = [];
+    let fam = '', nam = '', otc = '', ser = '', num = '';
+    for (const c in map) {
+      const f = map[c], raw = row[c]; if (raw == null || raw === '') continue;
+      if (IM_DATES.has(f)) { const d = toIso(raw); if (d) g[f] = d; continue; }
+      const v = cellStr(raw); if (!v) continue;
+      if (f === 'fam') fam = v; else if (f === 'nam') nam = v; else if (f === 'otc') otc = v;
+      else if (f === 'pser') ser = v; else if (f === 'pnum') num = v;
+      else if (f === 'note') notes.push(hs[c] ? `${hs[c]}: ${v}` : v);
+      else if (f === 'stat') { const st = parseStat(v, hs[c]); if (st !== null) g.stat = st; }
+      else if (f === 'tkst' || f === 'oSt' || f === 'bSt') g[f] = parseTk(v);
+      else g[f] = v;
+    }
+    if (fam || nam) g.fio = [fam, nam, otc].filter(Boolean).join(' ');
+    if (ser || num) g.pass = [ser, num].filter(Boolean).join(' ');
+    if (g.fiolat) { const parts = g.fiolat.split('/').map(x => x.trim()).filter(Boolean); g.fio = g.fio || parts.find(x => /[а-яё]/i.test(x)) || ''; const lt = parts.find(x => /[a-z]/i.test(x) && !/[а-яё]/i.test(x)); if (lt && !g.lat) g.lat = lt; delete g.fiolat; }
+    if (notes.length) g.note = notes.join('; ');
+    if (g.tripD) { const [rf, rt] = String(g.route || '').split(/\s*[-–—]\s*/).map(x => x.trim()); g.legs.push({ date: g.tripD, from: rf || '', to: rt || '', why: g.why || '', tk: g.tk || '', st: g.tkst || '' }); }
+    else if (g.route && (g.oD || g.bD)) { const [rf, rt] = g.route.split(/\s*[-–—]\s*/).map(x => x.trim()); const k = g.oD ? 'o' : 'b'; g[k + 'From'] = g[k + 'From'] || rf; g[k + 'To'] = g[k + 'To'] || rt; }
+    out.push(g);
+  }
+  return out.map(imClean).filter(g => g.fio || Object.keys(g).length > 1);
+}
+function imClean(g) {
+  if (g.fio) { g.fio = g.fio.replace(/\s+/g, ' ').trim(); if (g.fio === g.fio.toUpperCase() && /[А-ЯЁ]/.test(g.fio)) g.fio = titleCase(g.fio); if (/^(итого|всего|фио)/i.test(g.fio) || g.fio.split(' ').length > 5) g.fio = ''; }
+  if (g.lat) g.lat = g.lat.replace(/\s+/g, ' ').trim().toUpperCase();
+  if (g.tab) g.tab = g.tab.replace(/\.0+$/, '');
+  if ('lvl' in g) g.lvl = parseLvl(g.lvl);
+  if (g.why) g.why = reasonOf(g.why);
+  return g;
+}
+/* запись → сотрудник и поездки */
+function imApply(recs, opt) {
+  const r = { ea: 0, eu: 0, ta: 0, tu: 0, skip: 0 };
   const byPass = {}, byFio = {};
   emps().forEach(e => { if (e.pass) byPass[normPass(e.pass)] = e; if (e.fio) byFio[norm(e.fio)] = e; });
-  const r = { ea: 0, eu: 0, ta: 0, skip: 0 };
-  const EF = ['fio', 'lat', 'lvl', 'pos', 'tab', 'city', 'air', 'phone', 'wphone', 'email', 'cit', 'birth', 'bplace', 'pass', 'pIss', 'pExp', 'mvz', 'stay', 'note'];
   const dests = new Set([S('dest'), ...trips().flatMap(t => [t.oTo, t.to])].filter(Boolean).map(norm));
-  const STOP = /^\s*\*|^исполнитель|^согласовано|^проверил|^утверждаю/i;
-  const rowsOf = (sh, ri) => { const out = []; for (const row of sh.rows.slice(ri + 1)) { if (row.some(c => typeof c === 'string' && STOP.test(c))) break; out.push(row); } return out; };
   if (!dests.size) {
-    const cnt = {};
-    for (const { sh, ri, map } of found) if ('route' in map) rowsOf(sh, ri).forEach(row => String(row[map.route] || '').split(/\s*[-–—]\s*/).filter(Boolean).forEach(c => { const k = norm(c); cnt[k] = (cnt[k] || 0) + 1; }));
+    const cnt = {}; recs.forEach(g => g.legs.forEach(l => [l.from, l.to].filter(Boolean).forEach(c => cnt[norm(c)] = (cnt[norm(c)] || 0) + 1)));
     const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
-    if (top && top[1] >= 2) { dests.add(top[0]); if (!D.set.dest) { const orig = Object.keys(cnt).length && top[0]; setF(D.set, 'dest', orig.charAt(0).toUpperCase() + orig.slice(1)); } }
+    if (top && top[1] >= 2) { dests.add(top[0]); if (!D.set.dest) setF(D.set, 'dest', titleCase(top[0])); }
   }
-  for (const { sh, ri, map } of found) for (const row of rowsOf(sh, ri)) {
-    const tripSheet = ('oD' in map || 'bD' in map) && !('pass' in map) && !('phone' in map);
-    const g = {};
-    for (const k in map) { let v = row[map[k]]; v = DATES.has(k) ? toIso(v) : (v == null ? '' : (typeof v === 'object' && v.d ? fd(v.d) : String(v))).trim(); g[k] = v; }
-    if ('fiolat' in map) {
-      const parts = String(g.fio || '').split('/').map(x => x.trim()).filter(Boolean);
-      g.fio = parts.find(x => /[а-яё]/i.test(x)) || ''; const lt = parts.find(x => /[a-z]/i.test(x) && !/[а-яё]/i.test(x)); if (lt) g.lat = lt;
-    }
-    if (g.lat) g.lat = g.lat.toUpperCase();
-    if (/^\d+\.0+$/.test(g.tab || '')) g.tab = g.tab.replace(/\.0+$/, '');
-    if ('lvl' in g) g.lvl = parseLvl(g.lvl);
-    if (validIso(g.tripD)) {
-      const [rf, rt] = String(g.route || '').split(/\s*[-–—]\s*/).map(x => x.trim());
-      const back = (rf && dests.has(norm(rf)));
-      const k = back ? 'b' : 'o';
-      g[k + 'D'] = g.tripD; if (rf) g[k + 'From'] = rf; if (rt) g[k + 'To'] = rt; if (g.why) g[k + 'Why'] = g.why;
-      g._city = back ? rt : rf;
-    }
-    if (!g.fio) { if (Object.values(g).some(Boolean)) r.skip++; continue; }
-    if (/пример, удалите/i.test(g.note || '')) continue;
+  const put = (rec, k, v) => { if (v == null || v === '') return false; if (opt.mode === 'fill' && rec[k]) return false; return setF(rec, k, v); };
+  for (const g of recs) {
+    if (!g.fio) { r.skip++; continue; }
     let e = (g.pass && byPass[normPass(g.pass)]) || byFio[norm(g.fio)];
-    if (!e) { e = { id: uid(), _t: {} }; D.emp[e.id] = e; r.ea++; byFio[norm(g.fio)] = e; if (g.pass) byPass[normPass(g.pass)] = e; }
-    else if (!tripSheet) { if (EF.some(k => g[k] && g[k] !== (e[k] || ''))) r.eu++; }
-    EF.forEach(k => { if (g[k] && !(tripSheet && k === 'note')) setF(e, k, g[k]); });
-    if (g._city && !e.city && !g.city) setF(e, 'city', g._city);
-    if (validIso(g.oD) || validIso(g.bD)) {
-      const ex = Object.values(D.trip).filter(t => alive(t) && t.emp === e.id).find(t => (g.oD && t.oD === g.oD) || (g.bD && t.bD === g.bD) || (g.oD && !t.oD && t.bD && t.bD > g.oD && !g.bD));
-      const t = ex || { id: uid(), _t: {} };
-      setF(t, 'emp', e.id);
-      ['oD', 'bD', 'oFrom', 'oTo', 'bFrom', 'bTo', 'oWhy', 'bWhy'].forEach(k => { if (g[k]) setF(t, k, g[k]); });
-      if (!ex) { D.trip[t.id] = t; r.ta++; }
+    const isNew = !e;
+    if (!e) { e = { id: uid(), _t: {} }; D.emp[e.id] = e; byFio[norm(g.fio)] = e; if (g.pass) byPass[normPass(g.pass)] = e; setF(e, 'lvl', g.lvl || opt.lvl || 'w'); r.ea++; }
+    let ch = false;
+    IM_EMP.forEach(k => { if (k === 'lvl' && isNew) return; if (k in g && put(e, k, g[k])) ch = true; });
+    if (g.note && !(e.note || '').includes(g.note)) { setF(e, 'note', e.note ? e.note + '\n' + g.note : g.note); ch = true; }
+    if (!isNew && ch) r.eu++;
+    // поездки
+    const legs = [];
+    for (const k of ['o', 'b']) if (validIso(g[k + 'D'])) legs.push({ k, date: g[k + 'D'], from: g[k + 'From'], to: g[k + 'To'], tk: g[k + 'Tk'] || (k === 'o' && !g.bD ? g.tk : ''), st: g[k + 'St'] || '', why: g.why && !g.tripD ? g.why : '' });
+    g.legs.forEach(l => {
+      if (!validIso(l.date)) return;
+      const back = l.from && dests.has(norm(l.from)), fwd = l.to && dests.has(norm(l.to));
+      const base = norm(e.air || e.city || g.city || '');
+      const k = back ? 'b' : fwd ? 'o' : (base && norm(l.to) === base ? 'b' : 'o');
+      legs.push({ ...l, k });
+      if (k === 'b' && l.to && !e.city && !g.city) setF(e, 'city', l.to);
+      if (k === 'o' && l.from && !e.city && !g.city) setF(e, 'city', l.from);
+    });
+    let trip = null;
+    for (const l of legs) {
+      const mine = Object.values(D.trip).filter(t => alive(t) && t.emp === e.id);
+      let t = mine.find(t => t[l.k + 'D'] === l.date) || (trip && !trip[l.k + 'D'] ? trip : null);
+      if (!t && l.k === 'b') t = mine.filter(t => t.oD && !t.bD && t.oD < l.date && dn(l.date) - dn(t.oD) < 250).sort((a, b) => b.oD.localeCompare(a.oD))[0];
+      if (!t && l.k === 'o') t = mine.filter(t => t.bD && !t.oD && t.bD > l.date && dn(t.bD) - dn(l.date) < 250).sort((a, b) => a.bD.localeCompare(b.bD))[0];
+      const isNewT = !t; if (!t) { t = { id: uid(), _t: {} }; setF(t, 'emp', e.id); }
+      let tch = false;
+      [['D', l.date], ['From', l.from], ['To', l.to], ['Tk', l.tk], ['Why', l.why]].forEach(([s, v]) => { if (v && (s === 'D' ? setF(t, l.k + 'D', v) : put(t, l.k + s, v))) tch = true; });
+      if (l.st && (!t[l.k + 'S'] || opt.mode === 'over' || (l.st === 'tk' && t[l.k + 'S'] !== 'tk'))) { if (setF(t, l.k + 'S', l.st)) tch = true; if (!t[l.k + 'Sent']) setF(t, l.k + 'Sent', today()); }
+      if (isNewT) { D.trip[t.id] = t; r.ta++; } else if (tch) r.tu++;
+      trip = t;
     }
   }
-  save(); render();
-  ask({ title: 'Excel загружен', text: `${found.length > 1 ? 'Листы' : 'Лист'} ${found.map(f => '«' + esc(f.sh.name) + '»').join(', ')}.\nНовых сотрудников: ${r.ea}\nОбновлено: ${r.eu}\nНовых поездок: ${r.ta}` + (r.skip ? `\nПропущено строк без ФИО: ${r.skip}` : ''), cancel: null });
+  return r;
 }
+/* мастер загрузки */
+const IM = { srcs: [], i: 0, sum: { ea: 0, eu: 0, ta: 0, tu: 0, skip: 0, n: 0 }, opt: { lvl: 'w', mode: 'fill' } };
+async function startImport(files) {
+  files = Array.from(files || []).filter(Boolean); if (!files.length) return;
+  const srcs = [], bad = [], forms = [];
+  for (const f of files) {
+    try {
+      const head = new Uint8Array(await f.slice(0, 8).arrayBuffer());
+      if (head[0] === 0xD0 && head[1] === 0xCF) { bad.push(`«${f.name}» — старый формат .xls/.doc. Откройте его и сохраните как .xlsx или .docx («Файл» → «Сохранить как»).`); continue; }
+      if (/\.csv$/i.test(f.name)) { XL.readCsv(await f.text()).forEach(sh => srcs.push({ kind: 'table', file: f.name, name: 'CSV', rows: sh.rows })); continue; }
+      const buf = await f.arrayBuffer(), kind = await ZV.kind(buf);
+      if (kind === 'xlsx') { (await XL.read(buf)).forEach(sh => { if (!sh.hidden && sh.rows.filter(r => r.some(c => c !== '' && c != null)).length >= 1 && !/^сроки заявок$/i.test(sh.name)) srcs.push({ kind: 'table', file: f.name, name: sh.name, rows: sh.rows }); }); }
+      else if (kind === 'docx') {
+        const d = await ZV.readDocx(buf);
+        if (d.form) { forms.push({ file: f.name, form: d.form }); continue; }
+        const tabs = d.tables.filter(t => t.length >= 1 && t.some(r => r.some(Boolean)));
+        if (tabs.length) tabs.forEach((t, i) => srcs.push({ kind: 'table', file: f.name, name: tabs.length > 1 ? `Таблица ${i + 1}` : 'Таблица', rows: t }));
+        else if (d.paras.length) srcs.push({ kind: 'table', file: f.name, name: 'Текст', rows: d.paras.map(p => p.split(/\t|\s*;\s*|\s*\|\s*|\s+[—–]\s+/).map(x => x.trim())) });
+        else bad.push(`«${f.name}» — в документе нет текста и таблиц.`);
+      } else bad.push(`«${f.name}» — это не Excel и не Word. Подойдут .xlsx, .csv, .docx.`);
+    } catch (e) { bad.push(`«${f.name}» — не получилось прочитать: ${e.message || e}`); }
+  }
+  if (forms.length) srcs.unshift({ kind: 'forms', file: forms.length === 1 ? forms[0].file : `${forms.length} ${pl(forms.length, 'файл', 'файла', 'файлов')} Word`, name: 'Заявки на билеты', recs: forms.map(x => formRec(x.form)) });
+  srcs.forEach(s => { if (s.kind === 'table') { s.hdr = imHeaderRow(s.rows); imAutoMap(s); } });
+  const hasPeople = s => s.kind === 'forms' || Object.values(s.map).some(f => ['fio', 'fiolat', 'fam'].includes(f));
+  for (let i = srcs.length - 1; i >= 0; i--) { const s = srcs[i]; if (!hasPeople(s) && (s.rows.length < 3 || Math.max(0, ...s.rows.map(r => r.filter(c => c !== '' && c != null).length)) < 2)) srcs.splice(i, 1); }
+  if (!srcs.length && !bad.length) return ask({ title: 'Не нашёл таблиц с людьми', text: 'В файле нет таблицы, где есть ФИО. Проверьте, что выбран нужный файл.', cancel: null });
+  if (bad.length && !srcs.length) return ask({ title: 'Не получилось загрузить', text: bad.map(esc).join('\n\n'), cancel: null });
+  if (bad.length) await ask({ title: 'Некоторые файлы пропущены', text: bad.map(esc).join('\n\n'), cancel: null, ok: 'Продолжить' });
+  IM.srcs = srcs; IM.i = 0; IM.sum = { ea: 0, eu: 0, ta: 0, tu: 0, skip: 0, n: 0 };
+  imOpen();
+}
+function formRec(f) {
+  const g = { fio: f.fio, lat: f.lat, pass: f.pass, pExp: toIso(f.pExp), birth: toIso(f.birth), cit: f.cit, bplace: f.bplace, tab: f.tab, wphone: f.wphone, email: f.email, phone: f.phone, mvz: f.mvz, legs: [] };
+  (f.legs || []).forEach(l => { const d = toIso(l.date); if (d) g.legs.push({ date: d, from: l.from ? titleCase(l.from) : '', to: l.to ? titleCase(l.to) : '', why: reasonOf(l.why), tk: /^(авиа|жд|ж\/д)$/i.test(l.flight || '') ? '' : (l.flight || '') }); });
+  Object.keys(g).forEach(k => { if (g[k] === '' || g[k] == null) delete g[k]; });
+  return imClean(g);
+}
+function imOpen() {
+  const src = IM.srcs[IM.i]; if (!src) return imDone();
+  if (!src.lvl) src.lvl = src.kind === 'forms' ? 'm' : IM.opt.lvl;
+  const el = openSheet(1, `Загрузка ${IM.srcs.length > 1 ? `${IM.i + 1} из ${IM.srcs.length}` : 'данных'}`, imBody(), `<button class="btn" data-imskip>${IM.srcs.length > 1 ? 'Пропустить' : 'Отмена'}</button><button class="btn pri" data-imgo>${ic('upload')} Загрузить</button>`, () => { el.classList.remove('wide'); });
+  el.classList.add('wide');
+  imBind(el);
+}
+function imPreview(src) {
+  const recs = imRecords(src), ok = recs.filter(g => g.fio);
+  const ex = new Set(); emps().forEach(e => { if (e.pass) ex.add('p' + normPass(e.pass)); ex.add('f' + norm(e.fio)); });
+  const old = ok.filter(g => (g.pass && ex.has('p' + normPass(g.pass))) || ex.has('f' + norm(g.fio))).length;
+  const nl = ok.reduce((s, g) => s + g.legs.length + (validIso(g.oD) ? 1 : 0) + (validIso(g.bD) ? 1 : 0), 0);
+  return { recs, ok, old, nl, skip: recs.length - ok.length };
+}
+function imBody() {
+  const src = IM.srcs[IM.i], P = imPreview(src);
+  let h = `<div class="imfile">${ic(src.kind === 'forms' || /\.docx$/i.test(src.file) ? 'doc' : 'xls')}<div><b>${esc(src.file)}</b><div class="small muted">${esc(src.name)}${src.rows ? ` · ${src.rows.length} ${pl(src.rows.length, 'строка', 'строки', 'строк')}` : ''}${src.remembered ? ' · столбцы как в прошлый раз' : ''}</div></div></div>`;
+  if (src.kind === 'table') {
+    const rows = src.rows, ncol = Math.max(0, ...rows.slice(0, 80).map(r => r.length));
+    const hs = src.hdr >= 0 ? (rows[src.hdr] || []).map(cellStr) : [];
+    h += `<label class="fld"><span>Строка с названиями столбцов</span><select data-imhdr><option value="-1" ${src.hdr < 0 ? 'selected' : ''}>Нет названий — данные с первой строки</option>${rows.slice(0, 15).map((r, i) => `<option value="${i}" ${src.hdr === i ? 'selected' : ''}>Строка ${i + 1}: ${esc(r.map(cellStr).filter(Boolean).slice(0, 4).join(' · ').slice(0, 70))}</option>`).join('')}</select></label>`;
+    h += `<div class="grp">Что в каких столбцах</div><p class="small muted" style="margin:-4px 0 8px">Я угадал по названиям и содержимому. Проверьте и поправьте; ненужное оставьте «не загружать».</p><div class="imcols">`;
+    const data = rows.slice(src.hdr + 1).filter(r => r.some(c => c !== '' && c != null));
+    for (let c = 0; c < ncol; c++) {
+      const samples = data.map(r => cellStr(r[c])).filter(Boolean);
+      if (!samples.length && !hs[c]) continue;
+      const f = src.map[c] || '';
+      h += `<div class="imcol ${f ? 'on' : ''}"><div class="imh"><span class="colk">${colLetter(c)}</span><b>${esc(hs[c] || 'без названия')}</b></div><div class="ims">${samples.slice(0, 3).map(x => `<span>${esc(x.slice(0, 40))}</span>`).join('') || '<span class="muted">пусто</span>'}</div>
+        <select data-imcol="${c}"><option value="">— не загружать —</option>${IMPF.map(([g, fs]) => `<optgroup label="${g}">${fs.map(([k, n]) => `<option value="${k}" ${f === k ? 'selected' : ''}>${n}</option>`).join('')}</optgroup>`).join('')}</select></div>`;
+    }
+    h += `</div>`;
+    const mapped = Object.values(src.map);
+    if (!mapped.some(f => ['fio', 'fiolat', 'fam'].includes(f))) h += `<div class="banner red">${ic('alert')}<span class="sp">Укажите столбец с ФИО (или «Фамилия» и «Имя») — без него людей не загрузить.</span></div>`;
+  } else {
+    h += `<p class="small muted">Это заявки на приобретение билетов: из каждой беру человека, паспорт, контакты и поездки.</p>`;
+  }
+  h += `<div class="grp">Как загружать</div>
+    <div class="fld"><span class="lbl">Новых людей записать как</span><div class="seg lvls" data-imlvl>${Object.entries(LV).map(([k, v]) => `<button type="button" data-v="${k}" class="${v.c} ${src.lvl === k ? 'on' : ''}">${ic(v.i)}${v.n}</button>`).join('')}</div>${src.kind === 'table' && Object.values(src.map).includes('lvl') ? '<div class="hint">Где в файле указан уровень — возьму из файла.</div>' : ''}</div>
+    <div class="fld"><span class="lbl">Если человек уже есть в программе</span><div class="seg" data-immode><button type="button" data-v="fill" class="${IM.opt.mode === 'fill' ? 'on' : ''}">Дополнить пустые поля</button><button type="button" data-v="over" class="${IM.opt.mode === 'over' ? 'on' : ''}">Заменить данными из файла</button></div><div class="hint">Ищу по номеру паспорта, потом по ФИО.</div></div>`;
+  h += `<div class="grp">Что получится</div><div class="imsum"><span><b>${P.ok.length - P.old}</b> ${pl(P.ok.length - P.old, 'новый', 'новых', 'новых')}</span><span><b>${P.old}</b> уже ${pl(P.old, 'есть', 'есть', 'есть')}</span><span><b>${P.nl}</b> ${pl(P.nl, 'рейс', 'рейса', 'рейсов')}</span>${P.skip ? `<span class="muted"><b>${P.skip}</b> без ФИО — пропущу</span>` : ''}</div>`;
+  if (P.ok.length) {
+    const cols = ['fio', 'lat', 'pass', 'birth', 'phone', 'pos', 'stat'].filter(k => P.ok.some(g => g[k] !== undefined && g[k] !== ''));
+    h += `<div class="imprev"><table><thead><tr>${cols.map(k => `<th>${({ fio: 'ФИО', lat: 'Латиницей', pass: 'Паспорт', birth: 'Рожд.', phone: 'Телефон', pos: 'Должность', stat: 'Статус' })[k]}</th>`).join('')}<th>Рейсы</th></tr></thead><tbody>${P.ok.slice(0, 8).map(g => `<tr>${cols.map(k => `<td>${esc(k === 'birth' ? fd(g[k]) : k === 'stat' ? (g[k] ? STATN[g[k]] : 'работает') : g[k] || '')}</td>`).join('')}<td>${esc([...(validIso(g.oD) ? ['вылет ' + fd(g.oD)] : []), ...(validIso(g.bD) ? ['прилёт ' + fd(g.bD)] : []), ...g.legs.map(l => fd(l.date) + (l.from || l.to ? ` ${l.from || '?'}→${l.to || '?'}` : ''))].join(', '))}</td></tr>`).join('')}</tbody></table>${P.ok.length > 8 ? `<div class="small muted" style="padding:6px 2px">…и ещё ${P.ok.length - 8}</div>` : ''}</div>`;
+  }
+  return h;
+}
+const colLetter = n => { let s = ''; n++; while (n) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; } return s; };
+function imBind(el) {
+  const src = IM.srcs[IM.i];
+  const redraw = () => { const b = el.querySelector('.sh-b'), st = b.scrollTop; b.innerHTML = imBody(); imBind2(); b.scrollTop = st; upd(); };
+  const upd = () => { const P = imPreview(src), go = el.querySelector('[data-imgo]'); go.disabled = !P.ok.length; go.innerHTML = `${ic('upload')} Загрузить${P.ok.length ? ' ' + P.ok.length : ''}`; };
+  const imBind2 = () => {
+    const hs = el.querySelector('[data-imhdr]'); if (hs) hs.onchange = () => { src.hdr = +hs.value; imAutoMap(src); redraw(); };
+    $$('[data-imcol]', el).forEach(s => s.onchange = () => { const c = s.dataset.imcol; if (s.value) { for (const k in src.map) if (src.map[k] === s.value && s.value !== 'note' && k !== c) delete src.map[k]; src.map[c] = s.value; } else delete src.map[c]; src.remembered = false; redraw(); });
+    $$('[data-imlvl] button', el).forEach(b => b.onclick = () => { src.lvl = b.dataset.v; if (src.kind === 'table') IM.opt.lvl = b.dataset.v; $$('[data-imlvl] button', el).forEach(x => x.classList.toggle('on', x === b)); });
+    $$('[data-immode] button', el).forEach(b => b.onclick = () => { IM.opt.mode = b.dataset.v; $$('[data-immode] button', el).forEach(x => x.classList.toggle('on', x === b)); });
+  };
+  imBind2(); upd();
+  el.querySelector('[data-imskip]').onclick = () => { IM.i++; closeSheet(1); setTimeout(imOpen, 260); };
+  el.querySelector('[data-imgo]').onclick = () => {
+    const recs = imRecords(src);
+    if (src.kind === 'table') { try { const hs = src.hdr >= 0 ? (src.rows[src.hdr] || []).map(cellStr) : []; const key = hs.map(norm).join('|'); if (key.replace(/\|/g, '')) { const m = JSON.parse(localStorage.getItem('vylety.maps') || '{}'); m[key] = src.map; localStorage.setItem('vylety.maps', JSON.stringify(m)); } } catch (e) { } }
+    const r = imApply(recs, { ...IM.opt, lvl: src.lvl });
+    for (const k in r) IM.sum[k] += r[k]; IM.sum.n++;
+    save(); IM.i++; closeSheet(1); setTimeout(imOpen, 260);
+  };
+}
+function imDone() {
+  render(); shell();
+  const s = IM.sum; if (!s.n) return;
+  ask({ title: 'Загрузка закончена', text: `Новых сотрудников: ${s.ea}\nОбновлено: ${s.eu}\nНовых поездок: ${s.ta}${s.tu ? `\nОбновлено поездок: ${s.tu}` : ''}${s.skip ? `\nПропущено строк без ФИО: ${s.skip}` : ''}`, cancel: null });
+}
+async function importExcel(file) { return startImport([file]); }
 
 /* ---------- календарь ---------- */
 function icsFile() {
@@ -1585,7 +1879,7 @@ async function act(a) {
   if (a === 'exportdl') return exportFile('download');
   if (a === 'exportfull') return exportFile('full');
   if (a === 'import') return importAny(await pickFile('.vyl,.txt,.json,.xlsx,.csv,application/json,text/plain,application/octet-stream'));
-  if (a === 'xlsin') return importAny(await pickFile('.xlsx,.xlsm,.csv'));
+  if (a === 'xlsin') return startImport(await pickFiles('.xlsx,.xlsm,.csv,.docx,.xls,.doc'));
   if (a === 'xlsout') return emps().length ? exportXlsx() : toast('Пока нет сотрудников');
   if (a === 'xlstpl') return xlsTemplate();
   if (a === 'ics') return icsFile();
@@ -1657,6 +1951,8 @@ window.addEventListener('drop', e => {
   const fs = Array.from(e.dataTransfer.files || []); if (!fs.length) return;
   const media = fs.filter(f => /^image\/|application\/pdf/.test(f.type) || /\.(jpe?g|png|pdf|heic|webp)$/i.test(f.name));
   if (curEmp && media.length && $('#sheet1')._addDocs) return $('#sheet1')._addDocs(media);
+  const office = fs.filter(f => /\.(xlsx|xlsm|csv|docx|xls|doc)$/i.test(f.name));
+  if (office.length) return startImport(office);
   importAny(fs[0]);
 });
 if ('launchQueue' in window) launchQueue.setConsumer(async p => { if (p.files && p.files.length) importAny(await p.files[0].getFile()); });
