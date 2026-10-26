@@ -1,5 +1,5 @@
 /* Вылеты — сервис-воркер: работа без интернета */
-const V = 'vylety-1.0';
+const V = 'vylety-2.0';
 const FILES = ['./', './index.html', './app.js', './xl.js', './jszip.min.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))));
