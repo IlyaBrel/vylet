@@ -1,0 +1,31 @@
+{
+  "name": "Вылеты сотрудников",
+  "short_name": "Вылеты",
+  "description": "Сотрудники, вылеты и сроки заявок. Работает без интернета.",
+  "lang": "ru",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3f5f8",
+  "theme_color": "#14324f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Сотрудники", "url": "./?tab=emp" }, { "name": "Обмен", "url": "./?tab=sync" }
+  ],
+  "share_target": {
+    "action": "./share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": { "files": [ { "name": "file", "accept": ["*/*", ".vyl", ".txt", "text/plain", "application/octet-stream"] } ] }
+  },
+  "file_handlers": [
+    { "action": "./", "accept": { "application/x-vylety": [".vyl"] } }
+  ],
+  "launch_handler": { "client_mode": "focus-existing" }
+}
