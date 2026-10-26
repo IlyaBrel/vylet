@@ -1,6 +1,6 @@
 'use strict';
 /* ===== Вылеты сотрудников — офлайн-приложение для телефона и ПК ===== */
-const VER = '2.0';
+const VER = '2.1';
 const KEY = 'vylety.data.v1', LKEY = 'vylety.local.v1';
 const $ = s => document.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -58,6 +58,8 @@ const P = {
   pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
   ticket: '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 17v2M13 11v2"/>',
   arrow: '<path d="M5 12h14M12 5l7 7-7 7"/>',
+  chd: '<path d="m6 9 6 6 6-6"/>',
+  chu: '<path d="m18 15-6-6-6 6"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
   crown: '<path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.29l4.27-3.66a.5.5 0 0 1 .8.52l-2.83 10.24a1 1 0 0 1-.96.74H5.81a1 1 0 0 1-.96-.74L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.66a1 1 0 0 0 1.52-.29z" fill="currentColor"/><path d="M5 21h14"/>',
   hat: '<path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M14 6a6 6 0 0 1 6 6v3"/><path d="M4 15v-3a6 6 0 0 1 6-6"/><rect x="2" y="15" width="20" height="4" rx="1"/>',
@@ -72,6 +74,7 @@ const P = {
   help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
   shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
   clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  doc: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M9 13h6M9 17h6M9 9h2"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
 };
 const ic = (n, cls = '') => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${P[n]}</svg>`;
@@ -144,7 +147,7 @@ async function docURL(id) {
   return URLS[key] = URL.createObjectURL(blob);
 }
 
-const DEF = { lead: 45, warn: 7, tkw: 14, dest: '' };
+const DEF = { lead: 45, warn: 7, tkw: 14, dest: '', mvz: 'МУ-12', stay: '3M', org: '', contract: '', cName: '', cWork: '', cMob: '', cMail: '' };
 const S = k => { const v = D.set[k]; return v === undefined || v === '' ? DEF[k] : v; };
 const maxT = r => { let m = 0; for (const k in r._t) if (r._t[k] > m) m = r._t[k]; return m; };
 const alive = r => !!r && !(r._del && r._del >= maxT(r));
@@ -240,6 +243,8 @@ function demo() {
     D.emp[id] = mk(id, { fio: x[0], lat: x[1], lvl: x[2], pos: x[3], city: x[4], air: x[5], phone: x[6], email: x[7], cit: x[8], birth: x[9], pass: x[10], pIss: x[11], pExp: x[12], demo: 1 });
     return id;
   });
+  [['18004001', 'г. Тула', '+20 155 000 0001'], ['18040250', 'г. Екатеринбург', ''], ['18040211', '', ''], ['18004102', 'г. Ленинград', '+20 155 000 0102'], ['18040377', 'г. Ташкент', ''], ['18000015', '', '+20 155 000 0015']]
+    .forEach((x, i) => { const e = D.emp[ids[i]]; ['tab', 'bplace', 'wphone'].forEach((k, j) => { if (x[j]) { e[k] = x[j]; e._t[k] = T; } }); });
   // [сотрудник, вылет через, прилёт через, статус вылета, статус прилёта, куда вернуться]
   const TR = [[0, 40, 100, '', '', ''], [1, 48, 108, '', '', ''], [2, 65, 125, '', '', ''], [3, 70, 130, 'sent', '', ''], [4, 120, 180, '', '', ''], [0, -30, 30, 'tk', 'tk', ''], [5, 10, 24, 'sent', 'tk', 'Санкт-Петербург']];
   TR.forEach((x, i) => {
@@ -253,7 +258,7 @@ function demo() {
 const hasDemo = () => Object.values(D.emp).some(e => e.demo && alive(e)) || Object.values(D.trip).some(e => e.demo && alive(e));
 
 /* ---------- общий интерфейс ---------- */
-let TAB = L.tab, Q = { req: '', sch: '', emp: '' }, SEL = new Set(), F = { sch: 'all', past: false, emp: 'all', lvl: '' };
+let TAB = L.tab, Q = { req: '', sch: '', emp: '', app: '' }, SEL = new Set(), F = { sch: 'all', past: false, emp: 'all', lvl: '' };
 let toastT;
 function toast(m, ms = 2800) { const t = $('#toast'); t.innerHTML = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms); }
 function ask({ title = '', text = '', html = '', input = null, value = '', ok = 'OK', cancel = 'Отмена', danger = false, placeholder = '' }) {
@@ -322,7 +327,7 @@ function badges() {
   try { if (navigator.setAppBadge) n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } catch (e) { }
 }
 
-const TABS = [['req', 'Заявки', 'req'], ['sch', 'График', 'cal'], ['emp', 'Сотрудники', 'users'], ['sync', 'Обмен', 'sync']];
+const TABS = [['req', 'Заявки', 'req'], ['app', 'Оформить', 'doc'], ['sch', 'График', 'cal'], ['emp', 'Сотрудники', 'users'], ['sync', 'Обмен', 'sync']];
 function shell() {
   const cnt = k => k === 'req' || k === 'sync' ? `<span class="cnt hide" data-cnt="${k}"></span>` : '';
   $('#tabs').innerHTML = TABS.map(([k, n, i]) => `<button data-tab="${k}" class="${TAB === k ? 'on' : ''}">${ic(i)}${n}${cnt(k)}</button>`).join('');
@@ -333,9 +338,9 @@ function shell() {
     <div class="keys"><span class="kbd">/</span> поиск · <span class="kbd">N</span> добавить<br><span class="kbd">Ctrl S</span> отправить · <span class="kbd">Esc</span> закрыть</div>`;
   $$('[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab));
   $('#fab').innerHTML = ic('plus');
-  $('#fab').classList.toggle('hide', TAB === 'sync');
+  $('#fab').classList.toggle('hide', TAB === 'sync' || TAB === 'app');
   $('#fab').setAttribute('aria-label', TAB === 'emp' ? 'Добавить сотрудника' : 'Добавить поездку');
-  $('#ttl').textContent = { req: 'Заявки и билеты', sch: 'График вылетов', emp: 'Сотрудники', sync: 'Обмен и настройки' }[TAB];
+  $('#ttl').textContent = { req: 'Заявки и билеты', app: 'Оформление заявок', sch: 'График вылетов', emp: 'Сотрудники', sync: 'Обмен и настройки' }[TAB];
   badges();
 }
 function go(t) { if (t !== TAB) SEL.clear(); TAB = L.tab = t; save(); shell(); render(); window.scrollTo(0, 0); }
@@ -347,7 +352,9 @@ function render() {
   const V = VIEWS[TAB];
   v.innerHTML = V.head() + `<div id="res">${V.list()}</div>`;
   bindHead(v); bindRes($('#res'));
+  document.body.classList.toggle('wiz-on', TAB === 'app' && emps().length > 0);
   bulkBar();
+  if (TAB === 'sync') tplInfo();
   window.scrollTo(0, y);
 }
 function renderList() { const r = $('#res'); if (!r) return render(); r.innerHTML = VIEWS[TAB].list(); bindRes(r); bulkBar(); }
@@ -555,7 +562,9 @@ VIEWS.sync = {
     <p>Выгрузка: сотрудники, поездки и сроки заявок, три листа. Загрузка из вашей таблицы добавит новых людей и обновит существующих (ищу по номеру паспорта, потом по ФИО); столбцы узнаю по названиям.</p>
     <div class="btns"><button class="btn" data-do="xlsout">${ic('download')} Скачать Excel</button><button class="btn" data-do="xlsin">${ic('upload')} Загрузить из Excel</button></div>
     <div class="btns" style="margin-top:8px"><button class="btn sm" data-do="xlstpl">Пустой шаблон для заполнения</button></div>
-  </div></div><div>
+    <p class="small" style="margin:10px 0 0">Сюда же можно загрузить ваши старые заявки рабочих (Excel) — люди и их паспортные данные подтянутся.</p>
+  </div>
+  <div class="card"><h3>${ic('doc')}Бланки заявок</h3><p>По ним раздел «Оформить» делает файлы. Если поменяются подписанты или форма — исправьте бланк в Word/Excel и загрузите сюда.</p><div id="tplInfo"></div></div></div><div>
   <div class="card"><h3>${ic('cal')}Напоминания в календарь</h3>
     <p>Файл со сроками неподанных заявок: открываете — и сроки появляются в календаре телефона или Outlook, с напоминанием за 3 дня и в 9:00 в день срока.</p>
     <div class="btns"><button class="btn" data-do="ics">${ic('cal')} Сроки заявок в календарь</button></div></div>
@@ -586,14 +595,27 @@ function bindHead(v) {
     const el = $('#g-' + k) || (k === 'notk' ? $('#g-over') : null);
     if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (isPC() ? 16 : 70), behavior: 'smooth' }); else toast('Здесь пусто');
   });
-  $$('[data-set]', v).forEach(i => i.onchange = () => {
-    let val = i.value.trim(); const k = i.dataset.set;
-    if (k !== 'dest') { val = Math.max(+i.min, Math.min(+i.max, parseInt(val) || DEF[k])); i.value = val; }
-    setF(D.set, k, val); L.dirty.set = 1; save(); badges(); toast('Сохранено');
-  });
+  bindSets(v);
+  $$('[data-apstep]', v).forEach(b => b.onclick = () => { const n = +b.dataset.apstep; if (n > 1 && !apUnits().all.length) return toast('Сначала выберите людей'); AP.step = n; render(); window.scrollTo(0, 0); });
+  $$('[data-apmode]', v).forEach(b => b.onclick = () => { AP.mode = b.dataset.apmode; render(); });
   if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(p => { const el = $('#persist'); if (el) el.textContent = p ? 'на устройстве, защищено от автоочистки' : 'в памяти этого браузера'; });
 }
+function bindSets(v) {
+  $$('[data-set]', v).forEach(i => i.onchange = () => {
+    let val = i.value.trim(); const k = i.dataset.set;
+    if (i.type === 'number') { val = Math.max(+i.min, Math.min(+i.max, parseInt(val) || DEF[k])); i.value = val; }
+    setF(D.set, k, val); L.dirty.set = 1; save(); badges(); toast('Сохранено');
+  });
+}
 function bindRes(r) {
+  bindSets(r);
+  $$('[data-pick]', r).forEach(row => row.onclick = () => { const k = row.dataset.pick; AP.sel.has(k) ? AP.sel.delete(k) : AP.sel.add(k); renderList(); });
+  $$('[data-aptog]', r).forEach(h => h.onclick = () => { const id = h.dataset.aptog, card = h.closest('.acard'); AP.open[id] = !card.querySelector('.ab'); renderList(); });
+  $$('[data-apemp]', r).forEach(b => b.onclick = () => editEmp(b.dataset.apemp));
+  $$('[data-apdrop]', r).forEach(b => b.onclick = () => { b.dataset.apdrop.split(',').forEach(k => AP.sel.delete(k)); renderList(); toast('Убрано из заявки'); });
+  $$('[data-ak]', r).forEach(i => { i.oninput = () => apField(i, false); i.onchange = () => apField(i, true); });
+  $$('[data-apf]', r).forEach(i => i.oninput = i.onchange = () => { AP[i.dataset.apf] = i.dataset.apf === 'date' ? (validIso(i.value) ? i.value : AP.date) : i.value.trim(); });
+  $$('[data-apcomb]', r).forEach(b => b.onclick = () => { AP.comb = b.dataset.apcomb === '1'; $$('[data-apcomb]', r).forEach(x => x.classList.toggle('on', x === b)); });
   $$('[data-leg]', r).forEach(row => row.onclick = e => {
     if (e.target.closest('[data-mark]')) return;
     if (e.target.closest('[data-av]') || SEL.size) return toggleSel(row.dataset.leg, row);
@@ -609,12 +631,12 @@ function toggleSel(k, row) { SEL.has(k) ? SEL.delete(k) : SEL.add(k); $$(`[data-
 function bulkBar() {
   const b = $('#bulk');
   $('#fab').style.visibility = SEL.size ? 'hidden' : '';
-  document.body.classList.toggle('bulk-on', !!SEL.size && TAB !== 'sync');
-  if (!SEL.size || TAB === 'sync') { b.classList.add('hide'); return; }
+  document.body.classList.toggle('bulk-on', !!SEL.size && TAB !== 'sync' && TAB !== 'app');
+  if (!SEL.size || TAB === 'sync' || TAB === 'app') { b.classList.add('hide'); return; }
   b.classList.remove('hide');
   const n = SEL.size, x = `<button class="ibtn" data-b="clr" aria-label="Снять выбор">${ic('x')}</button>`, x2 = isPC() ? `<button class="btn sm" data-b="clr" aria-label="Снять выбор">${ic('x')}</button>` : '';
   if (TAB === 'emp') b.innerHTML = `<span class="t">Выбрано: ${n}${x}</span><div class="bb"><button class="btn sm ok" data-b="grouptrip">${ic('up')} Поездка</button><button class="btn sm" data-b="photos">${ic('image')} Фото</button><button class="btn sm" data-b="empxls">${ic('xls')} Excel</button><button class="btn sm" data-b="all">Все</button><button class="btn sm" data-b="empdel" aria-label="Удалить">${ic('trash')}</button>${x2}</div>`;
-  else b.innerHTML = `<span class="t">Выбрано: ${n}${x}</span><div class="bb"><button class="btn sm ok" data-b="sent">${ic('check')} Заявка подана</button><button class="btn sm ok" data-b="tk">${ic('ticket')} Билет есть</button><button class="btn sm" data-b="reqxls">${ic('xls')} Excel для заявки</button><button class="btn sm" data-b="photos">${ic('image')} Фото</button><button class="btn sm" data-b="copy">${ic('copy')} Текст</button>${x2}</div>`;
+  else b.innerHTML = `<span class="t">Выбрано: ${n}${x}</span><div class="bb"><button class="btn sm ok" data-b="form">${ic('doc')} Оформить</button><button class="btn sm" data-b="sent">${ic('check')} Заявка подана</button><button class="btn sm ok" data-b="tk">${ic('ticket')} Билет есть</button><button class="btn sm" data-b="reqxls">${ic('xls')} Excel для заявки</button><button class="btn sm" data-b="photos">${ic('image')} Фото</button><button class="btn sm" data-b="copy">${ic('copy')} Текст</button>${x2}</div>`;
   $$('[data-b]', b).forEach(y => y.onclick = () => bulk(y.dataset.b));
 }
 async function bulk(a) {
@@ -624,6 +646,7 @@ async function bulk(a) {
   if (a === 'sent' || a === 'tk') return mark(keys, a);
   if (a === 'reqxls') return reqXlsx(keys.map(legByKey).filter(Boolean));
   if (a === 'copy') return copyReq(keys.map(legByKey).filter(Boolean));
+  if (a === 'form') { AP.sel = new Set(keys); AP.step = 1; AP.inited = true; SEL.clear(); return go('app'); }
   if (a === 'photos') return sendPhotos(TAB === 'emp' ? keys : [...new Set(keys.map(legByKey).filter(Boolean).map(l => l.e.id))]);
   if (a === 'empxls') return exportXlsx(keys);
   if (a === 'grouptrip') return groupTrip(keys);
@@ -683,17 +706,21 @@ function editEmp(id, preset) {
     <div class="grp">Сотрудник</div>
     ${fld('fio', 'ФИО *', 'text', 'placeholder="Фамилия Имя Отчество" autocomplete="off" autocapitalize="words"')}
     ${fld('lat', 'ФИО латиницей, как в загранпаспорте', 'text', 'placeholder="IVANOV IVAN" style="text-transform:uppercase" autocomplete="off" autocapitalize="characters"')}
-    ${fld('pos', 'Должность', 'text', 'list="poss" autocomplete="off"')}
+    <div class="cols">${fld('pos', 'Должность', 'text', 'list="poss" autocomplete="off"')}${fld('tab', 'Табельный номер', 'text', 'inputmode="numeric" autocomplete="off"')}</div>
     <div class="grp">Города</div>
     <div class="cols">${fld('city', 'Базовый город', 'text', 'placeholder="где живёт" list="cities" autocomplete="off"')}${fld('air', 'Обычно вылетает из', 'text', `placeholder="${esc(r.city || 'если не из базового')}" list="cities" autocomplete="off"`)}</div>
     <div class="fld" style="margin-top:-6px"><div class="hint">Например, живёт в Туле, а летает из Москвы. В каждой поездке город вылета и прилёта можно поменять отдельно.</div></div>
     <div class="grp">Контакты</div>
-    <label class="fld"><span>Телефон</span><div class="inl"><input type="tel" data-f="phone" value="${esc(r.phone || '')}" placeholder="+7 …" autocomplete="off"><a data-l="tel" title="Позвонить" aria-label="Позвонить">${ic('phone')}</a><a data-l="wa" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp">${ic('msg')}</a></div></label>
+    <label class="fld"><span>Мобильный телефон</span><div class="inl"><input type="tel" data-f="phone" value="${esc(r.phone || '')}" placeholder="+7 …" autocomplete="off"><a data-l="tel" title="Позвонить" aria-label="Позвонить">${ic('phone')}</a><a data-l="wa" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp">${ic('msg')}</a></div></label>
     <label class="fld"><span>Почта</span><div class="inl"><input type="email" data-f="email" value="${esc(r.email || '')}" placeholder="name@mail.ru" autocomplete="off" autocapitalize="off"><a data-l="mail" title="Написать" aria-label="Написать">${ic('mail')}</a></div></label>
+    ${fld('wphone', 'Рабочий телефон (на объекте)', 'tel', 'placeholder="+20 …" autocomplete="off"')}
     <div class="grp">Паспорт</div>
     <div class="cols">${fld('pass', 'Серия и номер', 'text', 'autocomplete="off"')}${fld('cit', 'Гражданство', 'text', 'list="cits" autocomplete="off"')}</div>
     <div class="cols">${fld('birth', 'Дата рождения', 'date', 'max="' + today() + '"')}${fld('pIss', 'Дата выдачи', 'date')}</div>
-    <div class="cols">${fld('pExp', 'Действует до', 'date')}<div></div></div>
+    <div class="cols">${fld('pExp', 'Действует до', 'date')}${fld('bplace', 'Место рождения', 'text', 'autocomplete="off"')}</div>
+    <div class="grp">Для заявок</div>
+    <div class="cols">${fld('mvz', 'Код подразделения (МВЗ)', 'text', `placeholder="${esc(S('mvz'))}" autocomplete="off"`)}${fld('stay', 'Срок пребывания на объекте', 'text', `placeholder="${esc(S('stay'))}" autocomplete="off"`)}</div>
+    <div class="fld" style="margin-top:-6px"><div class="hint">Пустые поля возьмутся из настроек. ИТР, офис и руководство получают заявку в Word, рабочие — в общую Excel.</div></div>
     <div class="grp">Фото документов <span class="n" id="docN">${nd || ''}</span></div>
     <div id="docBox">${docsHtml()}</div>
     <div class="docadd">${!isPC() ? `<button type="button" class="btn" data-adddoc="cam">${ic('camera')} Сфотографировать</button>` : ''}<button type="button" class="btn" data-adddoc="file">${ic('clip')} ${isPC() ? 'Добавить фото или PDF' : 'Из галереи / файл'}</button></div>
@@ -907,6 +934,8 @@ function editTrip(id, preset, level = 1, after) {
       <label class="fld"><span>Рейс / бронь</span><input data-f="${k}Tk" value="${esc(r[k + 'Tk'] || '')}" placeholder="SU 2133" autocomplete="off"></label></div>
       <div class="cols"><label class="fld"><span>Откуда</span><input data-f="${k}From" value="${esc(r[k + 'From'] || '')}" placeholder="${esc(dF || 'город')}" list="cities2" autocomplete="off"></label>
       <label class="fld"><span>Куда</span><input data-f="${k}To" value="${esc(r[k + 'To'] || '')}" placeholder="${esc(dT || 'город')}" list="cities2" autocomplete="off"></label></div>
+      <div class="cols"><label class="fld"><span>Причина поездки</span><select data-f="${k}Why">${REASONS.map(x => `<option ${((r[k + 'Why'] || REASONS[0]) === x) ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      <label class="fld"><span>Транспорт</span><select data-f="${k}Tr">${['АВИА', 'ЖД'].map(x => `<option ${((r[k + 'Tr'] || 'АВИА') === x) ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div>
       <div class="dl" data-dl="${k}">${dlHtml(k)}</div>
       <div class="seg" data-seg="${k}S"><button type="button" data-v="" class="r ${!st ? 'on' : ''}">Нет заявки</button><button type="button" data-v="sent" class="b ${st === 'sent' ? 'on' : ''}">Заявка подана</button><button type="button" data-v="tk" class="g ${st === 'tk' ? 'on' : ''}">${ic('ticket')}Билет есть</button></div>
       ${st ? `<label class="fld" style="margin:10px 0 0"><span>Дата подачи заявки</span><input type="date" data-f="${k}Sent" value="${esc(r[k + 'Sent'] || '')}"></label>` : ''}</div>`;
@@ -1102,9 +1131,10 @@ function merge(obj) {
 }
 
 /* ---------- Excel ---------- */
-const EMP_COLS = [['fio', 'ФИО', 32], ['lat', 'ФИО латиницей', 26], ['lvl', 'Уровень', 16], ['pos', 'Должность', 20], ['city', 'Базовый город', 18], ['air', 'Город вылета', 16], ['phone', 'Телефон', 18], ['email', 'Почта', 26], ['cit', 'Гражданство', 14], ['birth', 'Дата рождения', 13, 1], ['pass', 'Паспорт №', 15], ['pIss', 'Дата выдачи', 13, 1], ['pExp', 'Действует до', 13, 1]];
+const EMP_COLS = [['fio', 'ФИО', 32], ['lat', 'ФИО латиницей', 26], ['lvl', 'Уровень', 16], ['pos', 'Должность', 20], ['tab', 'Табельный номер', 14], ['city', 'Базовый город', 18], ['air', 'Город вылета', 16], ['phone', 'Телефон', 18], ['wphone', 'Рабочий телефон', 18], ['email', 'Почта', 26], ['cit', 'Гражданство', 14], ['birth', 'Дата рождения', 13, 1], ['bplace', 'Место рождения', 20], ['pass', 'Паспорт №', 15], ['pIss', 'Дата выдачи', 13, 1], ['pExp', 'Действует до', 13, 1], ['mvz', 'МВЗ', 10], ['stay', 'Срок пребывания', 12]];
 const cell = (v, isDate) => isDate ? (validIso(v) ? { d: v } : '') : (v || '');
 const ST_RU = { '': 'нет заявки', sent: 'заявка подана', tk: 'билет есть' };
+const REASONS = ['Межсменка', 'Перевизовка', 'Увольнение', 'Учебный отпуск', 'Экстренно', 'Ежегодный отпуск'];
 const empVal = (e, k) => k === 'lvl' ? LV[lvOf(e)].one : e[k];
 async function exportXlsx(onlyIds) {
   const es = emps().filter(e => !onlyIds || onlyIds.includes(e.id));
@@ -1151,6 +1181,17 @@ async function xlsTemplate() {
 function mapHeader(h) {
   const s = norm(h).replace(/[.:]/g, '');
   if (!s || /заявк|статус|подан|ближайш|осталось|дней до|^№|^n$|кем выдан|рейс|документ|фото/.test(s)) return null;
+  if (/межсмен/.test(s)) return null;
+  if (/ф\s*и\s*о/.test(s.replace(/\./g, ' ')) && /лат/.test(s)) return 'fiolat';
+  if (/табел/.test(s)) return 'tab';
+  if (/место рожд/.test(s)) return 'bplace';
+  if (/рабоч.*тел/.test(s)) return 'wphone';
+  if (/мвз|подразделен/.test(s)) return 'mvz';
+  if (/пребыван/.test(s)) return 'stay';
+  if (/окончан/.test(s)) return 'pExp';
+  if (/маршрут/.test(s)) return 'route';
+  if (/дата поездки|дата отправлен/.test(s)) return 'tripD';
+  if (/причин|цель поездки/.test(s)) return 'why';
   const back = /прил[её]т|обрат|возвр/.test(s);
   if (/откуда/.test(s)) return back ? 'bFrom' : 'oFrom';
   if (/куда/.test(s)) return back ? 'bTo' : 'oTo';
@@ -1188,13 +1229,14 @@ async function importExcel(file) {
   let sheets;
   try { sheets = /\.csv$/i.test(file.name) ? XL.readCsv(await file.text()) : await XL.read(await file.arrayBuffer()); }
   catch (e) { return ask({ title: 'Не получилось прочитать Excel', text: 'Сохраните файл как .xlsx и попробуйте снова.\n' + esc(e.message), cancel: null }); }
-  const DATES = new Set(['birth', 'pIss', 'pExp', 'oD', 'bD']);
+  const DATES = new Set(['birth', 'pIss', 'pExp', 'oD', 'bD', 'tripD']);
   const found = [];
   for (const sh of sheets) {
     let best = null;
     for (let ri = 0; ri < Math.min(12, sh.rows.length); ri++) {
       const map = {}; (sh.rows[ri] || []).forEach((h, ci) => { const k = mapHeader(h); if (k && !(k in map)) map[k] = ci; });
       const score = Object.keys(map).length;
+      if ('fiolat' in map && !('fio' in map)) { map.fio = map.fiolat; }
       if ('fio' in map && Object.keys(map).some(k => !['fio', 'oFrom', 'oTo', 'bFrom', 'bTo', 'lvl'].includes(k)) && (!best || score > best.score)) best = { sh, ri, map, score };
     }
     if (best) found.push(best);
@@ -1203,24 +1245,46 @@ async function importExcel(file) {
   const byPass = {}, byFio = {};
   emps().forEach(e => { if (e.pass) byPass[normPass(e.pass)] = e; if (e.fio) byFio[norm(e.fio)] = e; });
   const r = { ea: 0, eu: 0, ta: 0, skip: 0 };
-  const EF = ['fio', 'lat', 'lvl', 'pos', 'city', 'air', 'phone', 'email', 'cit', 'birth', 'pass', 'pIss', 'pExp', 'note'];
-  for (const { sh, ri, map } of found) for (const row of sh.rows.slice(ri + 1)) {
+  const EF = ['fio', 'lat', 'lvl', 'pos', 'tab', 'city', 'air', 'phone', 'wphone', 'email', 'cit', 'birth', 'bplace', 'pass', 'pIss', 'pExp', 'mvz', 'stay', 'note'];
+  const dests = new Set([S('dest'), ...trips().flatMap(t => [t.oTo, t.to])].filter(Boolean).map(norm));
+  const STOP = /^\s*\*|^исполнитель|^согласовано|^проверил|^утверждаю/i;
+  const rowsOf = (sh, ri) => { const out = []; for (const row of sh.rows.slice(ri + 1)) { if (row.some(c => typeof c === 'string' && STOP.test(c))) break; out.push(row); } return out; };
+  if (!dests.size) {
+    const cnt = {};
+    for (const { sh, ri, map } of found) if ('route' in map) rowsOf(sh, ri).forEach(row => String(row[map.route] || '').split(/\s*[-–—]\s*/).filter(Boolean).forEach(c => { const k = norm(c); cnt[k] = (cnt[k] || 0) + 1; }));
+    const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+    if (top && top[1] >= 2) { dests.add(top[0]); if (!D.set.dest) { const orig = Object.keys(cnt).length && top[0]; setF(D.set, 'dest', orig.charAt(0).toUpperCase() + orig.slice(1)); } }
+  }
+  for (const { sh, ri, map } of found) for (const row of rowsOf(sh, ri)) {
     const tripSheet = ('oD' in map || 'bD' in map) && !('pass' in map) && !('phone' in map);
     const g = {};
     for (const k in map) { let v = row[map[k]]; v = DATES.has(k) ? toIso(v) : (v == null ? '' : (typeof v === 'object' && v.d ? fd(v.d) : String(v))).trim(); g[k] = v; }
+    if ('fiolat' in map) {
+      const parts = String(g.fio || '').split('/').map(x => x.trim()).filter(Boolean);
+      g.fio = parts.find(x => /[а-яё]/i.test(x)) || ''; const lt = parts.find(x => /[a-z]/i.test(x) && !/[а-яё]/i.test(x)); if (lt) g.lat = lt;
+    }
     if (g.lat) g.lat = g.lat.toUpperCase();
+    if (/^\d+\.0+$/.test(g.tab || '')) g.tab = g.tab.replace(/\.0+$/, '');
     if ('lvl' in g) g.lvl = parseLvl(g.lvl);
+    if (validIso(g.tripD)) {
+      const [rf, rt] = String(g.route || '').split(/\s*[-–—]\s*/).map(x => x.trim());
+      const back = (rf && dests.has(norm(rf)));
+      const k = back ? 'b' : 'o';
+      g[k + 'D'] = g.tripD; if (rf) g[k + 'From'] = rf; if (rt) g[k + 'To'] = rt; if (g.why) g[k + 'Why'] = g.why;
+      g._city = back ? rt : rf;
+    }
     if (!g.fio) { if (Object.values(g).some(Boolean)) r.skip++; continue; }
     if (/пример, удалите/i.test(g.note || '')) continue;
     let e = (g.pass && byPass[normPass(g.pass)]) || byFio[norm(g.fio)];
     if (!e) { e = { id: uid(), _t: {} }; D.emp[e.id] = e; r.ea++; byFio[norm(g.fio)] = e; if (g.pass) byPass[normPass(g.pass)] = e; }
     else if (!tripSheet) { if (EF.some(k => g[k] && g[k] !== (e[k] || ''))) r.eu++; }
     EF.forEach(k => { if (g[k] && !(tripSheet && k === 'note')) setF(e, k, g[k]); });
+    if (g._city && !e.city && !g.city) setF(e, 'city', g._city);
     if (validIso(g.oD) || validIso(g.bD)) {
       const ex = Object.values(D.trip).filter(t => alive(t) && t.emp === e.id).find(t => (g.oD && t.oD === g.oD) || (g.bD && t.bD === g.bD) || (g.oD && !t.oD && t.bD && t.bD > g.oD && !g.bD));
       const t = ex || { id: uid(), _t: {} };
       setF(t, 'emp', e.id);
-      ['oD', 'bD', 'oFrom', 'oTo', 'bFrom', 'bTo'].forEach(k => { if (g[k]) setF(t, k, g[k]); });
+      ['oD', 'bD', 'oFrom', 'oTo', 'bFrom', 'bTo', 'oWhy', 'bWhy'].forEach(k => { if (g[k]) setF(t, k, g[k]); });
       if (!ex) { D.trip[t.id] = t; r.ta++; }
     }
   }
@@ -1250,6 +1314,271 @@ function icsFile() {
   toast(`В файле ${ls.length} ${pl(ls.length, 'срок', 'срока', 'сроков')}. Откройте его, чтобы добавить в календарь.`, 4000);
 }
 
+/* ---------- ОФОРМЛЕНИЕ ЗАЯВОК: выбор → проверка → файлы ---------- */
+const AP = { step: 1, sel: new Set(), mode: 'need', inited: false, num: '', date: today(), comb: false, open: {} };
+const fmtOf = e => lvOf(e) === 'w' ? 'x' : 'w';
+const FMT = { x: 'Excel', w: 'Word' };
+const CITS = [
+  [/^(рф|росси|russia|russian|rf\b)/i, 'RUSSIA', 'РОССИЙСКАЯ ФЕДЕРАЦИЯ/RUSSIAN FEDERATION'],
+  [/^(узбек|uzbek)/i, 'UZBEKISTAN', 'УЗБЕКИСТАН/UZBEKISTAN'], [/^(казах|kazakh)/i, 'KAZAKHSTAN', 'КАЗАХСТАН/KAZAKHSTAN'],
+  [/^(таджик|tajik)/i, 'TAJIKISTAN', 'ТАДЖИКИСТАН/TAJIKISTAN'], [/^(кыргыз|киргиз|kyrgyz)/i, 'KYRGYZSTAN', 'КЫРГЫЗСТАН/KYRGYZSTAN'],
+  [/^(беларус|белорус|belarus)/i, 'BELARUS', 'БЕЛАРУСЬ/BELARUS'], [/^(армен|armen)/i, 'ARMENIA', 'АРМЕНИЯ/ARMENIA'],
+  [/^(азерб|azerb)/i, 'AZERBAIJAN', 'АЗЕРБАЙДЖАН/AZERBAIJAN'], [/^(молдо|moldov)/i, 'MOLDOVA', 'МОЛДОВА/MOLDOVA'],
+  [/^(туркм|turkm)/i, 'TURKMENISTAN', 'ТУРКМЕНИСТАН/TURKMENISTAN'], [/^(украин|ukrain)/i, 'UKRAINE', 'УКРАИНА/UKRAINE'],
+  [/^(египет|egypt)/i, 'EGYPT', 'ЕГИПЕТ/EGYPT'], [/^(грузи|georgia)/i, 'GEORGIA', 'ГРУЗИЯ/GEORGIA'],
+];
+const citX = v => { v = String(v || '').trim(); const c = CITS.find(x => x[0].test(v)); return c ? c[1] : v.toUpperCase(); };
+const citW = v => { v = String(v || '').trim(); const c = CITS.find(x => x[0].test(v)); return c ? c[2] : v; };
+const EFS = {
+  fio: { l: 'ФИО по-русски', req: 'xw' }, lat: { l: 'ФИО латиницей', req: 'xw', up: 1 },
+  pass: { l: 'Паспорт: серия и номер', req: 'xw' }, pIss: { l: 'Дата выдачи паспорта', t: 'date', req: 'x' },
+  pExp: { l: 'Паспорт действует до', t: 'date', req: 'xw' }, birth: { l: 'Дата рождения', t: 'date', req: 'xw' },
+  bplace: { l: 'Место рождения', req: 'xw' }, cit: { l: 'Гражданство', req: 'xw', list: 'apcits' },
+  pos: { l: 'Должность', req: 'x' }, tab: { l: 'Табельный номер', req: 'xw', im: 'numeric' },
+  stay: { l: 'Срок пребывания на объекте', def: 'stay', req: 'x' }, mvz: { l: 'Код подразделения (МВЗ)', def: 'mvz', req: 'w' },
+  phone: { l: 'Мобильный телефон', t: 'tel', req: 'xw' }, wphone: { l: 'Рабочий телефон', t: 'tel' }, email: { l: 'Эл. почта', t: 'email', req: 'xw' },
+};
+const LFS = {
+  date: { l: 'Дата поездки', t: 'date', req: 'xw', k: 'D' }, from: { l: 'Откуда', req: 'xw', k: 'From' }, to: { l: 'Куда', req: 'xw', k: 'To' },
+  why: { l: 'Причина / цель поездки', sel: REASONS, k: 'Why', def: REASONS[0] }, tr: { l: 'Вид транспорта', sel: ['АВИА', 'ЖД'], k: 'Tr', def: 'АВИА' },
+  next: { l: 'След. дата начала межсменки', t: 'date', k: 'Next' }, flight: { l: 'Рейс / поезд', k: 'Tk' },
+};
+const XF_E = ['fio', 'lat', 'pass', 'pIss', 'pExp', 'birth', 'bplace', 'cit', 'pos', 'tab', 'stay', 'phone', 'email'];
+const WF_E = ['fio', 'lat', 'pass', 'pExp', 'birth', 'bplace', 'cit', 'tab', 'mvz', 'phone', 'wphone', 'email'];
+const XF_L = ['why', 'tr', 'date', 'from', 'to', 'next'];
+const WF_L = ['date', 'from', 'to', 'why', 'tr', 'flight'];
+const eVal = (e, f) => { const v = e[f]; return (v == null || v === '') && EFS[f].def ? S(EFS[f].def) : (v || ''); };
+const lVal = (l, f) => f === 'date' ? l.date : f === 'from' ? l.from : f === 'to' ? l.to : (l.t[l.k + LFS[f].k] || LFS[f].def || '');
+function chkE(e, f, fmt, l) {
+  const v = String(eVal(e, f) || '').trim(), sp = EFS[f], T = today();
+  if (!v) return sp.req && sp.req.includes(fmt) ? ['err', 'не заполнено'] : null;
+  switch (f) {
+    case 'fio': if (/[a-z]/i.test(v)) return ['err', 'нужно по-русски']; if (v.split(/\s+/).length < 2) return ['warn', 'нужны фамилия и имя']; break;
+    case 'lat': if (/[^A-Za-z\s\-']/.test(v)) return ['err', 'только латинские буквы']; if (v.split(/\s+/).length < 2) return ['warn', 'нужны фамилия и имя']; break;
+    case 'pass': if (v.replace(/[^0-9A-Za-zА-Яа-я]/g, '').length < 6) return ['warn', 'слишком короткий номер']; break;
+    case 'pIss': if (v > T) return ['err', 'дата выдачи в будущем']; if (e.birth && v < e.birth) return ['err', 'раньше даты рождения']; break;
+    case 'pExp': if (v < T) return ['err', 'паспорт просрочен']; if (l && v < l.date) return ['err', 'истекает до поездки']; if (l && v < addD(l.date, 180)) return ['warn', 'меньше 6 мес. после поездки']; break;
+    case 'birth': { if (v > T) return ['err', 'дата в будущем']; const age = (dn(T) - dn(v)) / 365.25; if (age < 16 || age > 80) return ['warn', 'проверьте год']; break; }
+    case 'email': if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return ['err', 'неверный адрес']; break;
+    case 'phone': case 'wphone': if (v.replace(/\D/g, '').length < 10) return ['err', 'мало цифр']; break;
+    case 'tab': if (!/^\d+$/.test(v)) return ['warn', 'обычно только цифры']; break;
+  }
+  return null;
+}
+function chkL(l, f, fmt) {
+  const v = String(lVal(l, f) || '').trim(), sp = LFS[f];
+  if (!v) return sp.req && sp.req.includes(fmt) ? ['err', 'не заполнено'] : null;
+  if (f === 'date' && v < today()) return ['err', 'дата уже прошла'];
+  if (f === 'to' && norm(v) === norm(l.from)) return ['err', 'совпадает с «Откуда»'];
+  if (f === 'next' && v < l.date) return ['warn', 'раньше даты поездки'];
+  return null;
+}
+function apUnits() {
+  const legs = [...AP.sel].map(legByKey).filter(l => l && l.fleft >= 0);
+  legs.sort((a, b) => a.date.localeCompare(b.date) || a.e.fio.localeCompare(b.e.fio, 'ru'));
+  const x = legs.filter(l => fmtOf(l.e) === 'x').map(l => ({ fmt: 'x', e: l.e, legs: [l], id: 'x:' + l.key }));
+  const byE = {}; legs.filter(l => fmtOf(l.e) === 'w').forEach(l => (byE[l.e.id] = byE[l.e.id] || []).push(l));
+  const w = []; Object.values(byE).forEach(ls => { for (let i = 0; i < ls.length; i += 2) w.push({ fmt: 'w', e: ls[0].e, legs: ls.slice(i, i + 2), id: 'w:' + ls[i].key }); });
+  w.sort((a, b) => a.e.fio.localeCompare(b.e.fio, 'ru'));
+  return { x, w, all: [...x, ...w] };
+}
+function unitIssues(u) {
+  const out = [], EF = u.fmt === 'x' ? XF_E : WF_E, LF = u.fmt === 'x' ? XF_L : WF_L, last = u.legs[u.legs.length - 1];
+  EF.forEach(f => { const r = chkE(u.e, f, u.fmt, last); if (r) out.push([r[0], EFS[f].l, r[1]]); });
+  u.legs.forEach(l => LF.forEach(f => { const r = chkL(l, f, u.fmt); if (r) out.push([r[0], LFS[f].l, r[1]]); }));
+  return out;
+}
+const nErrs = iss => iss.filter(x => x[0] === 'err').length;
+function wizbar() {
+  const U = apUnits(), nx = U.x.length, nw = U.w.length;
+  const info = nx + nw ? `<b>${nx}</b> ${pl(nx, 'строка', 'строки', 'строк')} в Excel · <b>${nw}</b> ${pl(nw, 'заявка', 'заявки', 'заявок')} Word` : 'Никто не выбран';
+  const back = AP.step > 1 ? `<button class="btn" data-do="ap:back">Назад</button>` : '';
+  const next = AP.step === 1 ? `<button class="btn pri" data-do="ap:next" ${nx + nw ? '' : 'disabled'}>Проверить данные ${ic('arrow')}</button>` : AP.step === 2 ? `<button class="btn pri" data-do="ap:next">К файлам ${ic('arrow')}</button>` : '';
+  return `<div class="wizbar"><div class="info">${info}</div>${back}${next}</div>`;
+}
+VIEWS.app = {
+  head() {
+    if (!emps().length) return emptyAll();
+    if (!AP.inited) { AP.inited = true; if (!AP.sel.size) allLegs().filter(l => l.fleft >= 0 && !l.st && ['over', 'soon', 'notk'].includes(urg(l))).forEach(l => AP.sel.add(l.key)); }
+    const st = (n, t) => `<button class="stp ${AP.step === n ? 'on' : ''} ${AP.step > n ? 'done' : ''}" data-apstep="${n}"><b>${AP.step > n ? ic('check') : n}</b>${t}</button>`;
+    let h = `<div class="pagehead"><h2>Оформление заявок</h2></div><div class="steps2">${st(1, 'Кого')}${st(2, 'Проверка')}${st(3, 'Файлы')}</div>`;
+    if (AP.step === 1) h += `<div class="banner blu">${ic('info')}<span class="sp"><b>Рабочие</b> — одна общая заявка Excel. <b>ИТР, офис и руководство</b> — у каждого своя заявка Word, вылет и прилёт одного человека в одной заявке.</span></div>
+      <div class="toolbar">${searchBox('app', 'Поиск: ФИО, город')}<div class="chips"><button class="chip ${AP.mode === 'need' ? 'on' : ''}" data-apmode="need">Без заявки</button><button class="chip ${AP.mode === 'all' ? 'on' : ''}" data-apmode="all">Все рейсы</button></div></div>${lvChips()}
+      <div class="chips" style="margin-top:8px"><button class="chip" data-do="ap:urgent">${ic('alert')}Выбрать срочные</button><button class="chip" data-do="ap:all">Выбрать всех в списке</button><button class="chip" data-do="ap:none">${ic('x')}Снять выбор</button></div>`;
+    return h;
+  },
+  list() { if (!emps().length) return ''; return AP.step === 1 ? apPick() : AP.step === 2 ? apCheck() : apFiles(); }
+};
+const apList = () => allLegs().filter(l => l.fleft >= 0 && (AP.mode === 'all' || !l.st || AP.sel.has(l.key)) && byLvl(l.e) && matchQ(Q.app, l.e.fio, l.e.lat, l.from, l.to, l.e.pos)).sort((a, b) => a.dl.localeCompare(b.dl) || a.e.fio.localeCompare(b.e.fio, 'ru'));
+function apPick() {
+  const ls = apList();
+  if (!ls.length) return `<div class="card empty" style="margin-top:12px">${ic('doc')}<h3>${Q.app || F.lvl ? 'Ничего не найдено' : 'Нет рейсов без заявки'}</h3><p>${AP.mode === 'need' ? 'Нажмите «Все рейсы», чтобы оформить заявку повторно.' : ''}</p></div>` + wizbar();
+  let h = '';
+  for (const [fmt, title] of [['x', 'Рабочие'], ['w', 'ИТР, офис и руководство']]) {
+    const g = ls.filter(l => fmtOf(l.e) === fmt); if (!g.length) continue;
+    h += `<div class="sec"><span class="fmt ${fmt}">${FMT[fmt]}</span>${title}<span class="n">${g.filter(l => AP.sel.has(l.key)).length} из ${g.length}</span></div><div class="list">`;
+    g.forEach(l => {
+      const sel = AP.sel.has(l.key), ne = nErrs(unitIssues({ fmt, e: l.e, legs: [l] }));
+      h += `<div class="row pick ${sel ? 'sel' : ''}" data-pick="${l.key}">${av(l.e)}<div class="mn"><span class="nm">${esc(l.e.fio)}</span>
+        <span class="l2"><span class="i">${ic(l.k === 'o' ? 'up' : 'down')}${LEG[l.k]} <b>${fd(l.date)}</b></span>${routeHtml(l)}</span>
+        <div class="tags">${statusPill(l)}${ne ? `<span class="warn red">${ic('alert')}в данных ошибок: ${ne}</span>` : `<span class="warn ok">${ic('check')}данные полные</span>`}</div></div></div>`;
+    });
+    h += '</div>';
+  }
+  return h + wizbar();
+}
+function apSummary(U) {
+  let ne = 0, nw = 0, bad = 0;
+  U.all.forEach(u => { const iss = unitIssues(u), e = nErrs(iss); ne += e; nw += iss.length - e; if (e) bad++; });
+  return ne ? `<div class="banner red">${ic('alert')}<span class="sp">Ошибок в данных: <b>${ne}</b> у ${bad} ${pl(bad, 'человека', 'человек', 'человек')}. Исправьте прямо здесь — всё сохранится в карточках сотрудников.</span></div>`
+    : `<div class="allok">${ic('shield')}Все обязательные данные на месте${nw ? `, замечаний: ${nw}` : ''}</div>`;
+}
+function apCheck() {
+  const U = apUnits(); if (!U.all.length) { AP.step = 1; return apPick(); }
+  let h = `<div id="apSum">${apSummary(U)}</div>`;
+  for (const [fmt, title] of [['x', 'Рабочие — общая заявка'], ['w', 'ИТР, офис и руководство — заявка на каждого']]) {
+    const us = U[fmt]; if (!us.length) continue;
+    h += `<div class="sec"><span class="fmt ${fmt}">${FMT[fmt]}</span>${title}<span class="n">${us.length}</span></div>`;
+    us.forEach(u => h += apCard(u));
+  }
+  return h + `<datalist id="apcits">${['РФ', 'Беларусь', 'Узбекистан', 'Казахстан', 'Таджикистан', 'Кыргызстан', 'Армения', 'Азербайджан'].map(c => `<option value="${c}">`).join('')}</datalist>` + wizbar();
+}
+function unitHead(u, iss) {
+  const ne = nErrs(iss), nw = iss.length - ne;
+  return ne ? `<span class="pill red">${ic('alert')}ошибок: ${ne}</span>` : nw ? `<span class="pill yel">замечаний: ${nw}</span>` : `<span class="pill grn">${ic('check')}готово</span>`;
+}
+function apCard(u) {
+  const iss = unitIssues(u), ne = nErrs(iss), open = AP.open[u.id] ?? (ne > 0);
+  const tone = ne ? 'red' : iss.length ? 'yel' : 'grn';
+  let h = `<div class="acard t-${tone}" data-unit="${u.id}"><div class="ah" data-aptog="${u.id}">${av(u.e).replace('data-av', 'data-avx')}<div class="mn"><span class="nm">${esc(u.e.fio)}</span><span class="l2">${u.legs.map(l => `${LEG[l.k]} ${fd(l.date)}`).join(' и ')}${routeHtml(u.legs[0])}</span></div><span data-ust>${unitHead(u, iss)}</span>${ic(open ? 'chu' : 'chd', 'chev')}</div>`;
+  if (open) {
+    const EF = u.fmt === 'x' ? XF_E : WF_E, LF = u.fmt === 'x' ? XF_L : WF_L, last = u.legs[u.legs.length - 1];
+    h += `<div class="ab">` + u.legs.map(l => `<div class="legsub">${ic(l.k === 'o' ? 'up' : 'down')}${LEG[l.k]}</div><div class="afg">${LF.map(f => afL(l, f, u.fmt)).join('')}</div>`).join('');
+    h += `<div class="legsub">${ic('users')}Сотрудник</div><div class="afg">${EF.map(f => afE(u.e, f, u.fmt, last)).join('')}</div>`;
+    h += `<div class="ab-act"><button class="btn sm" data-apemp="${u.e.id}">${ic('users')} Карточка сотрудника</button><button class="btn sm" data-apdrop="${u.legs.map(l => l.key).join(',')}">${ic('x')} Убрать из заявки</button></div></div>`;
+  }
+  return h + '</div>';
+}
+function afHtml(key, label, val, type, c, o = {}) {
+  const inp = o.sel ? `<select data-ak="${key}">${o.sel.map(x => `<option ${x === val ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`
+    : `<input data-ak="${key}" type="${type || 'text'}" value="${esc(val)}"${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.list ? ` list="${o.list}"` : ''}${o.im ? ` inputmode="${o.im}"` : ''} autocomplete="off"${o.up ? ' style="text-transform:uppercase"' : ''}>`;
+  return `<label class="af ${c ? c[0] : ''}"><span>${label}${o.req ? ' *' : ''}</span>${inp}<div class="msg">${c ? esc(c[1]) : o.out ? `<i>${esc(o.out)}</i>` : ''}</div></label>`;
+}
+const citOut = (e, fmt) => e.cit ? 'в заявке: ' + (fmt === 'x' ? citX(e.cit) : citW(e.cit)) : '';
+function afE(e, f, fmt, l) { const sp = EFS[f]; return afHtml(`e|${e.id}|${f}|${fmt}|${l ? l.key : ''}`, sp.l, e[f] || '', sp.t, chkE(e, f, fmt, l), { ph: sp.def ? S(sp.def) : '', req: sp.req && sp.req.includes(fmt), up: sp.up, list: sp.list, im: sp.im, out: f === 'cit' ? citOut(e, fmt) : '' }); }
+function afL(l, f, fmt) { const sp = LFS[f]; return afHtml(`l|${l.key}|${f}|${fmt}`, sp.l, lVal(l, f), sp.t, chkL(l, f, fmt), { sel: sp.sel, req: sp.req && sp.req.includes(fmt), ph: f === 'flight' ? 'если пусто — «' + lVal(l, 'tr') + '»' : '' }); }
+function apField(i, final) {
+  const [kind, id, f, fmt, lk] = i.dataset.ak.split('|');
+  let v = final && i.tagName !== 'SELECT' ? i.value.trim() : i.value, c;
+  if (kind === 'e') {
+    const e = D.emp[id]; if (!e) return;
+    if (EFS[f].up) v = v.toUpperCase();
+    if (EFS[f].t === 'date' && v && !validIso(v)) return;
+    setF(e, f, v); c = chkE(e, f, fmt, lk ? legByKey(lk) : null);
+    if (final) $$(`[data-ak^="e|${id}|${f}|"]`).forEach(x => { if (x !== i) x.value = e[f] || ''; });
+  } else {
+    let l = legByKey(id); if (!l) return;
+    if (f === 'date') { if (!validIso(v)) { c = ['err', 'укажите дату']; } else setF(l.t, l.k + 'D', v); }
+    else setF(l.t, l.k + LFS[f].k, v);
+    l = legByKey(id); if (!c) c = l ? chkL(l, f, fmt) : null;
+  }
+  save(false);
+  const lab = i.closest('.af');
+  lab.classList.toggle('err', !!c && c[0] === 'err'); lab.classList.toggle('warn', !!c && c[0] === 'warn');
+  lab.querySelector('.msg').innerHTML = c ? esc(c[1]) : (f === 'cit' && kind === 'e' ? `<i>${esc(citOut(D.emp[id], fmt))}</i>` : '');
+  if (final) {
+    const U = apUnits();
+    $$('.acard').forEach(card => { const u = U.all.find(x => x.id === card.dataset.unit); if (!u) return; const iss = unitIssues(u); card.querySelector('[data-ust]').innerHTML = unitHead(u, iss); card.className = card.className.replace(/t-\w+/, 't-' + (nErrs(iss) ? 'red' : iss.length ? 'yel' : 'grn')); });
+    const s = $('#apSum'); if (s) s.innerHTML = apSummary(U);
+  }
+}
+function apFiles() {
+  const U = apUnits(); if (!U.all.length) { AP.step = 1; return apPick(); }
+  const ne = U.all.reduce((s, u) => s + nErrs(unitIssues(u)), 0);
+  let h = ne ? `<div class="banner red">${ic('alert')}<span class="sp">Осталось ошибок в данных: <b>${ne}</b>. Файлы сформируются, но эти клетки будут пустыми или неверными.</span><button class="btn sm" data-do="ap:back">Исправить</button></div>` : `<div class="allok">${ic('shield')}Данные проверены — можно формировать</div>`;
+  h += `<div class="card"><h3>${ic('doc')}Номер и дата заявки</h3><div class="cols"><label class="fld"><span>Номер заявки</span><input data-apf="num" value="${esc(AP.num)}" placeholder="можно оставить пустым" autocomplete="off"></label><label class="fld"><span>Дата заявки</span><input type="date" data-apf="date" value="${esc(AP.date)}"></label></div><p class="small" style="margin:0">Пустой номер останется в бланке линией «____», его можно вписать от руки.</p></div><div class="grid2">`;
+  if (U.x.length) h += `<div class="card"><h3><span class="fmt x">Excel</span>Рабочие — общая заявка</h3><p>${U.x.length} ${pl(U.x.length, 'строка', 'строки', 'строк')}: ${esc([...new Set(U.x.map(u => u.e.fio.split(/\s+/)[0]))].join(', '))}. Подписи и примечание о медосмотре — как в вашем бланке, выпадающий список причин работает.</p><div class="btns"><button class="btn pri" data-do="ap:xls">${ic('download')} Скачать Excel</button></div></div>`;
+  if (U.w.length) h += `<div class="card"><h3><span class="fmt w">Word</span>ИТР, офис и руководство</h3><p>${U.w.length} ${pl(U.w.length, 'заявка', 'заявки', 'заявок')}: ${esc(U.w.map(u => short(u.e.fio)).join(', '))}.</p><div class="seg" style="margin-bottom:10px"><button type="button" data-apcomb="0" class="${!AP.comb ? 'on' : ''}">Каждая отдельным файлом</button><button type="button" data-apcomb="1" class="${AP.comb ? 'on' : ''}">Все в одном файле</button></div><div class="btns"><button class="btn pri" data-do="ap:doc">${ic('download')} Скачать Word</button></div></div>`;
+  h += `</div>`;
+  if (U.x.length && U.w.length) h += `<div class="btns" style="display:flex;margin-bottom:12px"><button class="btn big pri" style="flex:1" data-do="ap:allz">${ic('download')} Скачать всё одним архивом</button></div>`;
+  h += `<details class="card"><summary>${ic('gear')} Реквизиты в заявке Word и значения по умолчанию</summary><p>Пустые поля — как в вашем бланке. Настройки передаются на другое устройство при обмене.</p>
+    <div class="cols"><label class="fld"><span>Организация заказчика</span><input data-set="org" value="${esc(D.set.org || '')}" placeholder="ООО «Трест РосСЭМ»"></label><label class="fld"><span>Номер договора</span><input data-set="contract" value="${esc(D.set.contract || '')}" placeholder="как в бланке (пусто)"></label></div>
+    <div class="cols"><label class="fld"><span>Контактное лицо</span><input data-set="cName" value="${esc(D.set.cName || '')}" placeholder="как в бланке"></label><label class="fld"><span>Его эл. почта</span><input data-set="cMail" value="${esc(D.set.cMail || '')}" placeholder="как в бланке"></label></div>
+    <div class="cols"><label class="fld"><span>Рабочий телефон</span><input data-set="cWork" value="${esc(D.set.cWork || '')}" placeholder="как в бланке"></label><label class="fld"><span>Мобильный</span><input data-set="cMob" value="${esc(D.set.cMob || '')}" placeholder="как в бланке"></label></div>
+    <div class="cols"><label class="fld"><span>Код МВЗ по умолчанию</span><input data-set="mvz" value="${esc(D.set.mvz || '')}" placeholder="${esc(DEF.mvz)}"></label><label class="fld"><span>Срок пребывания по умолчанию</span><input data-set="stay" value="${esc(D.set.stay || '')}" placeholder="${esc(DEF.stay)}"></label></div></details>`;
+  h += `<p class="small muted">Бланки — ваши: «Заявка» для рабочих (Excel) и «Заявка на приобретение билетов» (Word). Если подписанты поменяются, замените бланк в разделе «Обмен» → «Бланки заявок».</p>`;
+  return h + wizbar();
+}
+/* бланки: свой (из IndexedDB) или встроенный */
+async function tplBuf(kind) {
+  try { const v = await IDB.get('tpl:' + kind); if (v && v.buf) return v.buf; } catch (e) { }
+  const r = await fetch(kind === 'xlsx' ? 'shablon/rabochie.xlsx' : 'shablon/itr.docx'); if (!r.ok) throw new Error('Бланк не найден. Обновите приложение при интернете.');
+  return r.arrayBuffer();
+}
+const apDateRu = () => { const d = AP.date || today(); return `${+d.slice(8)} ${MONG[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}`; };
+async function buildXls(U) {
+  const rows = U.x.map((u, i) => {
+    const e = u.e, l = u.legs[0], tab = String(e.tab || '').trim(), nx = lVal(l, 'next');
+    return { A: i + 1, B: lVal(l, 'why'), C: `${e.fio || ''}/ ${(e.lat || '').toUpperCase()}`, D: lVal(l, 'tr'), E: validIso(nx) ? { d: nx } : '', F: { d: l.date }, G: `${l.from || ''}-${l.to || ''}`, H: e.pass || '', I: validIso(e.pIss) ? { d: e.pIss } : '', J: validIso(e.pExp) ? { d: e.pExp } : '', K: e.bplace || '', L: validIso(e.birth) ? { d: e.birth } : '', M: e.pos || '', N: /^\d{1,15}$/.test(tab) ? +tab : tab, O: eVal(e, 'stay'), P: citX(e.cit), Q: e.phone || '', R: e.email || '' };
+  });
+  const sur = [...new Set(U.x.map(u => u.e.fio.split(/\s+/)[0]))].join(', ');
+  return { name: fname(`Заявка рабочие ${fd(AP.date)}${AP.num ? ' №' + AP.num : ''} (${U.x.length} чел).xlsx`), blob: await ZV.fillXlsx(await tplBuf('xlsx'), rows, { title: `ЗАЯВКА № ${AP.num || '________'} от ${apDateRu()} ГОДА`, sheetName: sur }) };
+}
+async function buildDocs(U) {
+  const apps = U.w.map(u => { const e = u.e; return { fio: e.fio || '', lat: (e.lat || '').toUpperCase(), pass: e.pass || '', pExp: fd(e.pExp), birth: fd(e.birth), cit: citW(e.cit), bplace: e.bplace || '', mvz: eVal(e, 'mvz'), tab: e.tab || '', wphone: e.wphone || '', email: e.email || '', phone: e.phone || '', date: fd(AP.date), rail: lVal(u.legs[0], 'tr') === 'ЖД', legs: u.legs.map(l => ({ date: fd(l.date), flight: l.tk || lVal(l, 'tr'), from: l.from, to: l.to, why: lVal(l, 'why') })) }; });
+  const o = { num: AP.num, date: fd(AP.date), combined: AP.comb, org: D.set.org, contract: D.set.contract, cName: D.set.cName, cWork: D.set.cWork, cMob: D.set.cMob, cMail: D.set.cMail };
+  const blobs = await ZV.fillDocx(await tplBuf('docx'), apps, o);
+  if (AP.comb) return [{ name: fname(`Заявки ИТР ${fd(AP.date)} (${U.w.length}).docx`), blob: blobs[0] }];
+  const seen = {};
+  return blobs.map((b, i) => { const u = U.w[i]; let n = fname(`Заявка ${short(u.e.fio)} ${fd(u.legs[0].date)}.docx`); seen[n] = (seen[n] || 0) + 1; if (seen[n] > 1) n = n.replace(/\.docx$/, ` (${seen[n]}).docx`); return { name: n, blob: b }; });
+}
+async function apDownload(what) {
+  if (busy) return; const U = apUnits(); if (!U.all.length) return toast('Никто не выбран');
+  busy = true; toast('Формирую файлы…', 1500);
+  let units = [];
+  try {
+    const files = [];
+    if ((what === 'xls' || what === 'all') && U.x.length) { files.push(await buildXls(U)); units.push(...U.x); }
+    if ((what === 'doc' || what === 'all') && U.w.length) { files.push(...await buildDocs(U)); units.push(...U.w); }
+    if (!files.length) return;
+    if (files.length === 1) { const r = await shareOrDownload(files[0].blob, files[0].name, files[0].blob.type, !isPC()); if (r === 'abort') return; }
+    else {
+      let shared = false;
+      if (!isPC() && navigator.canShare) {
+        const fs = files.map(f => new File([f.blob], f.name, { type: f.blob.type }));
+        try { if (navigator.canShare({ files: fs })) { await navigator.share({ files: fs, title: 'Заявки' }); shared = true; } } catch (e) { if (e.name === 'AbortError') return; }
+      }
+      if (!shared) { const z = new JSZip(); files.forEach(f => z.file(f.name, f.blob)); download(await z.generateAsync({ type: 'blob' }), fname(`Заявки ${fd(AP.date)}${AP.num ? ' №' + AP.num : ''}.zip`)); }
+    }
+    toast(`Готово: ${files.length} ${pl(files.length, 'файл', 'файла', 'файлов')}`);
+  } catch (e) { busy = false; return ask({ title: 'Не получилось сформировать файл', text: esc(e.message || String(e)), cancel: null }); }
+  finally { busy = false; }
+  const legs = units.flatMap(u => u.legs).filter(l => !l.st);
+  if (legs.length && await ask({ title: 'Отметить заявки поданными?', text: `Для ${legs.length} ${pl(legs.length, 'рейса', 'рейсов', 'рейсов')} поставить «заявка подана» с датой ${fd(AP.date)}. В списке они станут синими.`, ok: 'Отметить', cancel: 'Пока нет' })) {
+    legs.forEach(l => { setF(l.t, l.k + 'S', 'sent'); setF(l.t, l.k + 'Sent', AP.date || today()); });
+    save(); render(); toast('Отмечено: ' + legs.length);
+  }
+}
+async function tplAct(op, kind) {
+  const nm = kind === 'xlsx' ? 'Заявка рабочие (бланк).xlsx' : 'Заявка ИТР (бланк).docx';
+  if (op === 'dl') { const b = new Blob([await tplBuf(kind)], { type: kind === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }); return shareOrDownload(b, nm, b.type, false); }
+  if (op === 'reset') { await IDB.del('tpl:' + kind).catch(() => { }); render(); return toast('Возвращён встроенный бланк'); }
+  if (op === 'up') {
+    const f = await pickFile(kind === 'xlsx' ? '.xlsx' : '.docx'); if (!f) return;
+    const buf = await f.arrayBuffer();
+    let ok = false; try { ok = kind === 'xlsx' ? await ZV.checkXlsx(buf) : await ZV.checkDocx(buf); } catch (e) { }
+    if (!ok) return ask({ title: 'Это не похоже на бланк заявки', text: kind === 'xlsx' ? 'В бланке Excel должна быть строка заголовков с «Причина поездки» и «Ф.И.О.».' : 'В бланке Word должны быть строки «Персональные данные работника» и «Фамилия Имя Отчество».', cancel: null });
+    await IDB.put('tpl:' + kind, { type: f.type, buf, at: Date.now(), name: f.name });
+    render(); toast('Бланк заменён. Проверьте его: сформируйте пробную заявку.', 4000);
+  }
+}
+async function tplInfo() {
+  const el = $('#tplInfo'); if (!el) return;
+  const st = {}; for (const k of ['xlsx', 'docx']) { try { st[k] = await IDB.get('tpl:' + k); } catch (e) { st[k] = null; } }
+  const row = (k, t) => `<div class="tplrow"><div><b>${t}</b><div class="small muted">${st[k] ? `ваш файл «${esc(st[k].name || '')}», заменён ${ftime(st[k].at)}` : 'встроенный — ваш бланк от 20.10.2026'}</div></div><div class="btns"><button class="btn sm" data-do="tpl:dl:${k}">${ic('download')} Скачать</button><button class="btn sm" data-do="tpl:up:${k}">${ic('upload')} Заменить</button>${st[k] ? `<button class="btn sm" data-do="tpl:reset:${k}">Вернуть встроенный</button>` : ''}</div></div>`;
+  el.innerHTML = row('xlsx', 'Рабочие — Excel') + row('docx', 'ИТР, офис, руководство — Word');
+}
+
 /* ---------- действия ---------- */
 async function act(a) {
   if (a === 'export') return exportFile();
@@ -1261,6 +1590,17 @@ async function act(a) {
   if (a === 'xlstpl') return xlsTemplate();
   if (a === 'ics') return icsFile();
   if (a === 'legend') return legend();
+  if (a.startsWith('ap:')) {
+    const c = a.slice(3);
+    if (c === 'next') { if (!apUnits().all.length) return toast('Выберите хотя бы одного человека'); AP.step = Math.min(3, AP.step + 1); render(); return window.scrollTo(0, 0); }
+    if (c === 'back') { AP.step = Math.max(1, AP.step - 1); render(); return window.scrollTo(0, 0); }
+    if (c === 'urgent') { const ls = apList().filter(l => !l.st && ['over', 'soon', 'notk'].includes(urg(l))); ls.forEach(l => AP.sel.add(l.key)); renderList(); return toast(ls.length ? 'Выбрано срочных: ' + ls.length : 'Срочных нет'); }
+    if (c === 'all') { apList().forEach(l => AP.sel.add(l.key)); return renderList(); }
+    if (c === 'none') { AP.sel.clear(); return renderList(); }
+    if (c === 'xls' || c === 'doc') return apDownload(c);
+    if (c === 'allz') return apDownload('all');
+  }
+  if (a.startsWith('tpl:')) { const [, op, kind] = a.split(':'); return tplAct(op, kind); }
   if (a === 'newemp') return editEmp(null, F.lvl ? { lvl: F.lvl } : null);
   if (a === 'newtrip') return emps().length ? editTrip(null) : toast('Сначала добавьте сотрудника');
   if (a.startsWith('tog:')) { const k = a.slice(4); F[k] = !F[k]; return renderList(); }
@@ -1298,7 +1638,7 @@ document.addEventListener('keydown', e => {
   if (typing || e.ctrlKey || e.metaKey || e.altKey || STACK.length || $('#modal') || $('#viewer')) return;
   if (e.key === '/') { const s = $('[data-q]'); if (s) { e.preventDefault(); s.focus(); } }
   else if (e.key.toLowerCase() === 'n' || e.key.toLowerCase() === 'т') { e.preventDefault(); TAB === 'emp' ? act('newemp') : act('newtrip'); }
-  else if (/^[1-4]$/.test(e.key)) go(TABS[+e.key - 1][0]);
+  else if (/^[1-5]$/.test(e.key)) go(TABS[+e.key - 1][0]);
 });
 /* вставка картинки из буфера в карточку сотрудника (ПК) */
 document.addEventListener('paste', e => {
@@ -1351,7 +1691,7 @@ function showUpdate(w) {
 if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => { if (!p) navigator.storage.persist(); });
 
 /* старт */
-{ const m = location.search.match(/[?&]tab=(req|sch|emp|sync)/); if (m) { TAB = L.tab = m[1]; history.replaceState(null, '', location.pathname); } }
+{ const m = location.search.match(/[?&]tab=(req|app|sch|emp|sync)/); if (m) { TAB = L.tab = m[1]; history.replaceState(null, '', location.pathname); } }
 if (!TABS.some(t => t[0] === TAB)) TAB = 'req';
 if (!L.seen && !Object.keys(D.emp).length) { demo(); L.seen = 1; save(); }
 L.seen = 1;
